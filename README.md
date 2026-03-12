@@ -1,5 +1,7 @@
 # 🏏 GullyCricket PWA v3.0
 
+WEBSITE and APP for GullyCricket
+
 ## Quick Start
 ```bash
 npm install
