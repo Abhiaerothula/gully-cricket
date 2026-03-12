@@ -825,7 +825,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
       )}
       <GSection title="ALL MATCHES" css={css}>
         {matches.length===0&&<div style={{textAlign:'center',padding:30,color:css.sub}}><div style={{fontSize:36,marginBottom:8}}>🏏</div><div style={{fontSize:13}}>No matches yet!</div></div>}
-        {[...matches].reverse().map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(m.status==='live'){if(!isAdmin&&!isUserInMatch(m,currentUser?.email)){window.alert('Only players in this match can do live scoring.');return}if(!verifyCurrentUserPassword())return;setActiveScoring(m)}else setViewMatch(m)}}/>)}
+        {[...matches].reverse().map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(!verifyCurrentUserPassword())return;if(m.status==='live'){setActiveScoring(m)}else{setViewMatch(m)}}}/>)}
       </GSection>
     </div>
   )
