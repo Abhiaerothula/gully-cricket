@@ -1,4 +1,4 @@
-import{useState}from'react'
+import{useEffect,useState}from'react'
 import{Plus,X,UserPlus,Trash2,Edit3,Database,CheckCircle,Lock,Unlock}from'lucide-react'
 import{BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}from'recharts'
 import{C,ROLES,COLORS_BAR}from'../data/constants.js'
@@ -26,10 +26,31 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPr
   const teams=Object.keys(teamsDB)
   const teamPls=selTeam?(teamsDB[selTeam]||[]):[]
   const selectedPlayer=teamPls.find(p=>p.id===selectedPlayerId)||null
+  useEffect(()=>{
+    if(!teams.length){
+      if(selTeam)setSelTeam('')
+      return
+    }
+    if(!teams.includes(selTeam))setSelTeam(teams[0])
+  },[teams,selTeam])
+  useEffect(()=>{
+    if(!selTeam)return
+    const currentInTeam=teamPls.some(p=>p.id===selectedPlayerId)
+    if(!currentInTeam)setSelectedPlayerId(teamPls[0]?.id??null)
+  },[selTeam,teamPls,selectedPlayerId])
   const roleColor=r=>r==='Batsman'?C.yellow:r==='Bowler'?C.danger:r==='All-Rounder'?C.success:'#9b59b6'
   const resetForm=()=>setPForm({name:'',email:'',photo:'',role:'Batsman',runs:'0',wickets:'0',catches:'0',matches:'0',balls:'0',fours:'0',sixes:'0'})
   const savePlayer=()=>{
     if(!pForm.name.trim())return
+    const normalizedName=pForm.name.trim().toLowerCase()
+    const existingInOtherTeam=Object.entries(teamsDB).find(([team,players])=>
+      team!==selTeam&&
+      (players||[]).some(x=>x.id!==editP?.id&&x.name?.trim().toLowerCase()===normalizedName)
+    )
+    if(existingInOtherTeam){
+      window.alert(`Player \"${pForm.name.trim()}\" already exists in team \"${existingInOtherTeam[0]}\".`)
+      return
+    }
     const p={id:editP?editP.id:Date.now(),name:pForm.name,email:pForm.email.trim().toLowerCase(),photo:pForm.photo||'',team:selTeam,role:pForm.role,runs:+pForm.runs||0,wickets:+pForm.wickets||0,catches:+pForm.catches||0,matches:+pForm.matches||0,balls:+pForm.balls||0,fours:+pForm.fours||0,sixes:+pForm.sixes||0,innings:+pForm.matches||0}
     setTeamsDB(prev=>({...prev,[selTeam]:editP?(prev[selTeam]||[]).map(x=>x.id===editP.id?p:x):[...(prev[selTeam]||[]),p]}))
     setShowAdd(false);setEditP(null);resetForm()
@@ -39,7 +60,19 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPr
     if(selectedPlayerId===pid)setSelectedPlayerId(null)
   }
   const openEdit=p=>{setEditP(p);setPForm({name:p.name,email:p.email||'',photo:p.photo||'',role:p.role||'Batsman',runs:''+p.runs,wickets:''+p.wickets,catches:''+p.catches,matches:''+p.matches,balls:''+p.balls,fours:''+p.fours,sixes:''+p.sixes});setShowAdd(true)}
-  const addTeam=()=>{if(!newTName.trim())return;setTeamsDB(prev=>({...prev,[newTName.trim()]:[]}));setSelTeam(newTName.trim());setNewTName('');setShowAddT(false)}
+  const addTeam=()=>{
+    const cleanName=newTName.trim()
+    if(!cleanName)return
+    const exists=Object.keys(teamsDB).some(t=>t.trim().toLowerCase()===cleanName.toLowerCase())
+    if(exists){
+      window.alert(`Team \"${cleanName}\" already exists.`)
+      return
+    }
+    setTeamsDB(prev=>({...prev,[cleanName]:[]}))
+    setSelTeam(cleanName)
+    setNewTName('')
+    setShowAddT(false)
+  }
   const delTeam=()=>{
     if(!isAdmin){
       window.alert('Only Admin can delete teams.')
