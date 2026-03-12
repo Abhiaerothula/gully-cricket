@@ -33,8 +33,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
   const outPlayers=ci?.outPlayers||[]
   const needsInningsSetup=!ci?.striker||!ci?.nonStriker||!ci?.bowler
   const availableIncoming=battingPlayers.filter(p=>p!==ci?.striker&&p!==ci?.nonStriker&&!outPlayers.includes(p))
-  const isMatchPlayer=currentUser?.role==='admin'||isUserInMatch(match,currentUser?.email)
-  const canScore=isMatchPlayer
+  const canScore=!!currentUser?.email
 
   useEffect(()=>{
     setSetupStriker(ci?.striker||'')
@@ -240,7 +239,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
         {chasing&&<div style={{marginTop:10,textAlign:'center',color:C.yellow,fontWeight:900,fontSize:15}}>🎉 {match.team2} wins!</div>}
       </div>
       <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
-        {!canScore&&<div style={{background:`${C.warn}22`,border:`1px solid ${C.warn}55`,borderRadius:10,padding:'10px 12px',fontSize:12,color:C.warn,fontWeight:700}}>Scoring locked. Only players in this match can update score and points.</div>}
+        {!canScore&&<div style={{background:`${C.warn}22`,border:`1px solid ${C.warn}55`,borderRadius:10,padding:'10px 12px',fontSize:12,color:C.warn,fontWeight:700}}>Please login to continue live scoring.</div>}
         {isFreeHit&&(<div style={{background:`${C.yellow}15`,border:`2px solid ${C.yellow}`,borderRadius:12,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:24}}>⚡</span><div><div style={{fontSize:14,fontWeight:900,color:C.yellow}}>FREE HIT!</div><div style={{fontSize:11,color:css.sub}}>No dismissal except Run Out</div></div></div>)}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
           {[{label:'CRR',value:crr},{label:'Extras',value:ci.extras||0},{label:totalBalls?'Left':'Balls',value:bLeft??ci.balls}].map(s=>(
@@ -720,8 +719,8 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   }
   if(activeScoring){
     const live=matches.find(m=>m.id===activeScoring.id)||activeScoring
-    if(!isAdmin&&!isUserInMatch(live,currentUser?.email)){
-      window.alert('Only players in this match can do live scoring.')
+    if(!currentUser?.email){
+      window.alert('Please login to continue live scoring.')
       setActiveScoring(null)
       return null
     }
