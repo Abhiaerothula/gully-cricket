@@ -1,7 +1,7 @@
 import{Plus,Trophy}from'lucide-react'
 import{C}from'../data/constants.js'
 import{GSection,MatchCard,PAv}from'../components/Shared.jsx'
-export default function HomePage({css,isDark,matches,setTab,setShowNewMatch,notices,leaderboards,allPlayers}){
+export default function HomePage({css,isDark,matches,setTab,setShowNewMatch,setActiveScoring,notices,leaderboards,allPlayers}){
   const live=matches.filter(m=>m.status==='live')
   return(
     <div className="page-pad">
@@ -13,7 +13,7 @@ export default function HomePage({css,isDark,matches,setTab,setShowNewMatch,noti
         <div style={{fontSize:26,fontWeight:900,color:C.white,marginBottom:8,lineHeight:1.2}}>Ready to score<br/><span style={{color:C.yellow}}>today's match?</span></div>
         <div style={{fontSize:13,color:'rgba(255,255,255,0.5)',marginBottom:20}}>{live.length>0?`${live.length} match live now 🔴`:'No live matches — start one below'}</div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-          <button onClick={()=>{setTab('score');setShowNewMatch(true)}} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:'11px 22px',fontSize:14,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:`0 4px 14px ${C.yellow}44`}}><Plus size={15}/>New Match</button>
+          <button onClick={()=>{setActiveScoring(null);setTab('score');setShowNewMatch(true)}} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:'11px 22px',fontSize:14,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:`0 4px 14px ${C.yellow}44`}}><Plus size={15}/>New Match</button>
           <button onClick={()=>setTab('league')} style={{background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:10,padding:'11px 22px',fontSize:14,fontWeight:700,color:C.yellow,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><Trophy size={15}/>League</button>
         </div>
       </div>

@@ -143,7 +143,7 @@ export default function App(){
         <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
           <button onClick={isLoggedIn?logoutCurrentUser:()=>setShowAuth(true)} style={{background:isLoggedIn?`${C.danger}22`:`${C.info}22`,border:`1px solid ${isLoggedIn?C.danger:C.info}55`,borderRadius:8,padding:'8px 10px',cursor:'pointer',color:isLoggedIn?C.danger:C.info,fontSize:11,fontWeight:800,whiteSpace:'nowrap'}}>{isLoggedIn?'Logout':'Login'}</button>
           {isLoggedIn&&<span style={{background:`${C.success}22`,border:`1px solid ${C.success}55`,borderRadius:8,padding:'8px 10px',color:C.success,fontSize:11,fontWeight:800,whiteSpace:'nowrap',maxWidth:240,overflow:'hidden',textOverflow:'ellipsis'}}>Logged in: {userEmail}</span>}
-          <button onClick={()=>{setTab('score');setShowNewMatch(true)}} className="desktop-only" style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:8,padding:'8px 18px',cursor:'pointer',color:C.black,fontSize:13,fontWeight:800,display:'flex',alignItems:'center',gap:6}}>
+          <button onClick={()=>{setActiveScoring(null);setTab('score');setShowNewMatch(true)}} className="desktop-only" style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:8,padding:'8px 18px',cursor:'pointer',color:C.black,fontSize:13,fontWeight:800,display:'flex',alignItems:'center',gap:6}}>
             <Plus size={14}/>New Match
           </button>
           <button onClick={()=>setTheme(t=>t==='dark'?'light':'dark')} style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:8,cursor:'pointer',color:'rgba(255,255,255,0.8)',display:'flex',alignItems:'center'}}>
@@ -154,7 +154,7 @@ export default function App(){
       </header>
       {/* PAGES */}
       <main className="main-content" style={{maxWidth:1280,margin:'0 auto',padding:'0 32px'}}>
-        {tab==='home'&&<HomePage css={css} isDark={isDark} matches={matches} setTab={setTab} setShowNewMatch={setShowNewMatch} notices={notices} leaderboards={leaderboards} allPlayers={allPlayers}/>}
+        {tab==='home'&&<HomePage css={css} isDark={isDark} matches={matches} setTab={setTab} setShowNewMatch={setShowNewMatch} setActiveScoring={setActiveScoring} notices={notices} leaderboards={leaderboards} allPlayers={allPlayers}/>} 
         {tab==='score'&&<ScorePage css={css} isDark={isDark} matches={matches} setMatches={setMatches} showNewMatch={showNewMatch} setShowNewMatch={setShowNewMatch} activeScoring={activeScoring} setActiveScoring={setActiveScoring} teamsDB={teamsDB} tournaments={tournaments} setTournaments={setTournaments} currentUser={currentUser} authSession={authSession}/>}
         {tab==='league'&&<LeaguePage css={css} isDark={isDark} tournaments={tournaments} setTournaments={setTournaments} teamsDB={teamsDB} currentUser={currentUser} authSession={authSession}/>} 
         {tab==='players'&&<PlayersPage css={css} isDark={isDark} teamsDB={teamsDB} setTeamsDB={setTeamsDB} premium={premium} setPremium={setPremium}/>}
