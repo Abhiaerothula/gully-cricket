@@ -1,6 +1,6 @@
 import{C}from'./constants.js'
-function mkP(id,name,team,role,runs,wkts,catches,matches,balls,fours,sixes){
-  return{id,name,team,role,runs,wickets:wkts,catches,matches,balls,fours,sixes,innings:matches}
+function mkP(id,name,team,role,runs,wkts,catches,matches,balls,fours,sixes,email=''){
+  return{id,name,team,role,runs,wickets:wkts,catches,matches,balls,fours,sixes,innings:matches,email}
 }
 export const DEFAULT_TEAMS_DB={
   'Street Kings':[
@@ -30,6 +30,21 @@ export const DEFAULT_TEAMS_DB={
     mkP(403,'Sunita Yadav','Night Riders','All-Rounder',280,11,6,8,255,26,9),
     mkP(404,'Ashish Pandey','Night Riders','Batsman',350,4,5,9,290,34,18),
     mkP(405,'Lalit Singh','Night Riders','Wicket-Keeper',220,0,16,9,185,20,5),
+    ],
+    'DRS':[
+      mkP(501,'Abhi Thula','DRS','All-Rounder',150,8,12,5,200,18,6,'abhi.aero.thula@gmail.com'),
+      mkP(502,'Krishna','DRS','Batsman',200,2,5,6,240,24,8,'krishna@localhost'),
+      mkP(503,'Nipun','DRS','Bowler',45,15,7,5,110,4,2,'nipun@localhost'),
+      mkP(504,'Player4','DRS','Batsman',100,1,3,4,150,12,4,'player4@localhost'),
+      mkP(505,'Player5','DRS','Wicket-Keeper',80,0,10,4,120,8,2,'player5@localhost'),
+    ],
+    'DD':[
+      mkP(601,'Susheel','DD','Batsman',180,3,4,6,220,20,7,'susheel@localhost'),
+      mkP(602,'Chandu','DD','Bowler',50,18,6,5,130,5,1,'chandu@localhost'),
+      mkP(603,'Player6','DD','All-Rounder',140,9,8,5,180,16,5,'player6@localhost'),
+      mkP(604,'Player7','DD','Batsman',120,2,6,5,160,14,3,'player7@localhost'),
+      mkP(605,'Player8','DD','Wicket-Keeper',90,0,12,5,140,10,3,'player8@localhost'),
+    ],
   ],
 }
 
