@@ -3,7 +3,7 @@ import{Plus,X,ChevronDown,RotateCcw}from'lucide-react'
 import{C,FORMATS,WICKET_TYPES,EXTRAS_TYPES}from'../data/constants.js'
 import{GSection,MatchCard,GIn}from'../components/Shared.jsx'
 
-function LiveScorer({match,setMatches,css,isDark,onExit}){
+function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
   const[inn,setInn]=useState(0)
   const[showWicket,setShowWicket]=useState(false)
   const[showExtras,setShowExtras]=useState(false)
@@ -33,6 +33,8 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   const outPlayers=ci?.outPlayers||[]
   const needsInningsSetup=!ci?.striker||!ci?.nonStriker||!ci?.bowler
   const availableIncoming=battingPlayers.filter(p=>p!==ci?.striker&&p!==ci?.nonStriker&&!outPlayers.includes(p))
+  const isMatchPlayer=currentUser?.role==='admin'||isUserInMatch(match,currentUser?.email)
+  const canScore=isMatchPlayer
 
   useEffect(()=>{
     setSetupStriker(ci?.striker||'')
@@ -52,6 +54,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   },[ci?.balls,ci?.overs,ci?.wickets,inn,match.status,needsInningsSetup,isHundred,effectiveOvers,lastBowlerPrompt])
 
   const addBall=useCallback((runs,isWicket=false,extras=null)=>{
+    if(!canScore)return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
       const innings=[...m.innings]
@@ -102,9 +105,10 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
       else if(eff&&legal&&c.balls%6===0&&c.overs>=eff)status=inn===0?'break':'completed'
       return{...m,innings,status}
     }))
-  },[match.id,inn,setMatches,fmt])
+  },[match.id,inn,setMatches,fmt,canScore])
 
   const undoLast=useCallback(()=>{
+    if(!canScore)return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
       const innings=[...m.innings]
@@ -121,9 +125,10 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
       c.ballLog=balls;c.snapshots=snaps;innings[inn]=c
       return{...m,innings,status:'live'}
     }))
-  },[match.id,inn,setMatches])
+  },[match.id,inn,setMatches,canScore])
 
   const swapTeams=()=>{
+    if(!canScore)return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
       return{...m,team1:tempTeam2,team2:tempTeam1}
@@ -133,6 +138,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   }
 
   const changeScorer=()=>{
+    if(!canScore)return
     if(!newScorer.trim())return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
@@ -143,6 +149,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   }
 
   const saveInningsSetup=()=>{
+    if(!canScore)return
     if(!setupStriker||!setupNonStriker||!setupBowler||setupStriker===setupNonStriker)return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
@@ -153,6 +160,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   }
 
   const confirmWicket=()=>{
+    if(!canScore)return
     if(!nextBatter)return
     const dismissed= dismissedBatter==='striker'?ci.striker:ci.nonStriker
     addBall(0,true,null)
@@ -175,6 +183,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
   }
 
   const confirmBowlerChange=()=>{
+    if(!canScore)return
     if(!nextBowler)return
     setMatches(prev=>prev.map(m=>{
       if(m.id!==match.id)return m
@@ -210,7 +219,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',letterSpacing:1}}>{match.format}·{match.status.toUpperCase()}</div>
             {isFreeHit&&<div style={{fontSize:11,fontWeight:900,color:C.yellow}}>⚡ FREE HIT BALL</div>}
           </div>
-          <button onClick={undoLast} disabled={!canUndo} style={{background:canUndo?`${C.danger}33`:'rgba(255,255,255,0.05)',border:`1px solid ${canUndo?C.danger+'55':'rgba(255,255,255,0.1)'}`,borderRadius:8,padding:'6px 10px',cursor:canUndo?'pointer':'default',color:canUndo?C.danger:'rgba(255,255,255,0.3)',display:'flex',alignItems:'center',gap:4,fontSize:10,fontWeight:700}}>
+          <button onClick={undoLast} disabled={!canUndo||!canScore} style={{background:canUndo&&canScore?`${C.danger}33`:'rgba(255,255,255,0.05)',border:`1px solid ${canUndo&&canScore?C.danger+'55':'rgba(255,255,255,0.1)'}`,borderRadius:8,padding:'6px 10px',cursor:canUndo&&canScore?'pointer':'default',color:canUndo&&canScore?C.danger:'rgba(255,255,255,0.3)',display:'flex',alignItems:'center',gap:4,fontSize:10,fontWeight:700}}>
             <RotateCcw size={12}/>Undo
           </button>
         </div>
@@ -231,6 +240,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
         {chasing&&<div style={{marginTop:10,textAlign:'center',color:C.yellow,fontWeight:900,fontSize:15}}>🎉 {match.team2} wins!</div>}
       </div>
       <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
+        {!canScore&&<div style={{background:`${C.warn}22`,border:`1px solid ${C.warn}55`,borderRadius:10,padding:'10px 12px',fontSize:12,color:C.warn,fontWeight:700}}>Scoring locked. Only players in this match can update score and points.</div>}
         {isFreeHit&&(<div style={{background:`${C.yellow}15`,border:`2px solid ${C.yellow}`,borderRadius:12,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:24}}>⚡</span><div><div style={{fontSize:14,fontWeight:900,color:C.yellow}}>FREE HIT!</div><div style={{fontSize:11,color:css.sub}}>No dismissal except Run Out</div></div></div>)}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
           {[{label:'CRR',value:crr},{label:'Extras',value:ci.extras||0},{label:totalBalls?'Left':'Balls',value:bLeft??ci.balls}].map(s=>(
@@ -257,7 +267,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             </div>
           </div>
         </div>
-        {needsInningsSetup&&(
+        {needsInningsSetup&&canScore&&(
           <div style={{background:css.card,borderRadius:12,padding:12,border:`2px solid ${C.info}`}}>
             <div style={{fontSize:12,fontWeight:800,color:C.info,marginBottom:10}}>Set Players for {ci.batting}</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
@@ -280,7 +290,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
         <div style={{background:css.card,borderRadius:12,padding:12,border:`1px solid ${css.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <span style={{fontSize:10,color:css.sub,letterSpacing:1}}>THIS OVER</span>
-            {canUndo&&<button onClick={undoLast} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'3px 8px',cursor:'pointer',color:C.danger,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><RotateCcw size={10}/>Undo last</button>}
+            {canUndo&&canScore&&<button onClick={undoLast} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'3px 8px',cursor:'pointer',color:C.danger,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><RotateCcw size={10}/>Undo last</button>}
           </div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             {(ci.ballLog||[]).slice(-6).map((b,i)=>{const{bg,col}=bStyle(b);const isNB=b.startsWith('NB');return(
@@ -292,7 +302,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             {!(ci.ballLog||[]).length&&<span style={{fontSize:12,color:css.sub}}>No balls yet</span>}
           </div>
         </div>
-        {match.status==='live'&&!needsInningsSetup&&!showBowlerChange&&(
+        {match.status==='live'&&!needsInningsSetup&&!showBowlerChange&&canScore&&(
           <>
             <div style={{background:css.card,borderRadius:12,padding:12,border:`2px solid ${isFreeHit?C.yellow:css.border}`,transition:'border 0.3s'}}>
               <div style={{fontSize:10,color:isFreeHit?C.yellow:css.sub,marginBottom:10,letterSpacing:1,fontWeight:isFreeHit?800:400}}>{isFreeHit?'⚡ FREE HIT — RUNS':'RUNS'}</div>
@@ -313,7 +323,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             </div>
           </>
         )}
-        {inn===0&&(match.status==='break'||(match.status==='live'&&!showBowlerChange&&((isHundred&&ci.balls>=100)||(effectiveOvers&&ci.overs>=effectiveOvers))))&&(
+        {inn===0&&(match.status==='break'||(match.status==='live'&&!showBowlerChange&&((isHundred&&ci.balls>=100)||(effectiveOvers&&ci.overs>=effectiveOvers))))&&canScore&&(
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             <div style={{background:`${C.yellow}11`,border:`1px solid ${C.yellow}33`,borderRadius:12,padding:'10px 14px',textAlign:'center'}}>
               <div style={{fontSize:13,fontWeight:800,color:C.yellow}}>🏏 1st Innings Complete</div>
@@ -326,7 +336,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             <button onClick={()=>{setInn(1);setMatches(prev=>prev.map(m=>m.id===match.id?{...m,status:'live'}:m))}} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:14,fontSize:14,fontWeight:800,color:C.black,cursor:'pointer',boxShadow:`0 4px 16px ${C.yellow}44`}}>Start 2nd Innings →</button>
           </div>
         )}
-        {showWicket&&(
+        {showWicket&&canScore&&(
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:200,display:'flex',alignItems:'flex-end'}}>
             <div style={{width:'100%',maxWidth:480,margin:'0 auto',background:css.card,borderRadius:'20px 20px 0 0',padding:20,border:`2px solid ${C.yellow}`,borderBottom:'none'}}>
               <div style={{fontWeight:800,fontSize:16,marginBottom:16,color:C.yellow}}>🎯 Wicket Type</div>
@@ -348,7 +358,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             </div>
           </div>
         )}
-        {showExtras&&(
+        {showExtras&&canScore&&(
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:200,display:'flex',alignItems:'flex-end'}}>
             <div style={{width:'100%',maxWidth:480,margin:'0 auto',background:css.card,borderRadius:'20px 20px 0 0',padding:20,border:`2px solid ${C.yellow}`,borderBottom:'none'}}>
               <div style={{fontWeight:800,fontSize:16,marginBottom:4,color:C.yellow}}>⚡ Extras</div>
@@ -360,7 +370,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             </div>
           </div>
         )}
-        {showScorerChange&&(
+        {showScorerChange&&canScore&&(
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:200,display:'flex',alignItems:'flex-end'}}>
             <div style={{width:'100%',maxWidth:480,margin:'0 auto',background:css.card,borderRadius:'20px 20px 0 0',padding:20,border:`2px solid ${C.info}`,borderBottom:'none'}}>
               <div style={{fontWeight:800,fontSize:16,marginBottom:14,color:C.info}}>👤 Change Scorer</div>
@@ -372,7 +382,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit}){
             </div>
           </div>
         )}
-        {showBowlerChange&&(
+        {showBowlerChange&&canScore&&(
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:210,display:'flex',alignItems:'flex-end'}}>
             <div style={{width:'100%',maxWidth:480,margin:'0 auto',background:css.card,borderRadius:'20px 20px 0 0',padding:20,border:`2px solid ${C.warn}`,borderBottom:'none'}}>
               <div style={{fontWeight:800,fontSize:16,marginBottom:6,color:C.warn}}>🎯 Over Complete</div>
@@ -573,8 +583,84 @@ function MatchAnalysisView({match,onBack,css,isDark}){
   )
 }
 
-export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB}){
-  const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',toss:'',bat:'',customOvers:'10',team1Players:[],team2Players:[],striker:'',nonStriker:'',firstBowler:''})
+function isUserInMatch(match,userId){
+  if(!match||!userId)return false
+  const t1Emails=match.team1PlayerEmails||[]
+  const t2Emails=match.team2PlayerEmails||[]
+  if(t1Emails.includes(userId)||t2Emails.includes(userId))return true
+  const t1=match.team1Players||[]
+  const t2=match.team2Players||[]
+  return t1.includes(userId)||t2.includes(userId)
+}
+
+function getMatchScoreByTeam(match){
+  const scoreByTeam={}
+  ;(match.innings||[]).forEach(inn=>{
+    if(!inn?.batting)return
+    scoreByTeam[inn.batting]=inn.score||0
+  })
+  return scoreByTeam
+}
+
+function applyMatchResultToTournament(tournament,match){
+  const scores=getMatchScoreByTeam(match)
+  const t1=match.team1
+  const t2=match.team2
+  const s1=scores[t1]??0
+  const s2=scores[t2]??0
+  const isTie=s1===s2
+  const winner=isTie?null:(s1>s2?t1:t2)
+  const loser=isTie?null:(winner===t1?t2:t1)
+  const pointsByTeam={}
+  if(isTie){pointsByTeam[t1]=1;pointsByTeam[t2]=1}
+  else{pointsByTeam[winner]=2;pointsByTeam[loser]=0}
+
+  const updateRows=rows=>(rows||[]).map(r=>{
+    if(r.team!==t1&&r.team!==t2)return r
+    const isWin=!isTie&&r.team===winner
+    const isLoss=!isTie&&r.team===loser
+    const delta=(scores[r.team]||0)-(scores[r.team===t1?t2:t1]||0)
+    const prevNrr=r.nrr==='—'?0:parseFloat(r.nrr)||0
+    const nextNrr=prevNrr+(delta/10)
+    return{
+      ...r,
+      p:(r.p||0)+1,
+      w:(r.w||0)+(isWin?1:0),
+      l:(r.l||0)+(isLoss?1:0),
+      pts:(r.pts||0)+(pointsByTeam[r.team]||0),
+      nrr:`${nextNrr>=0?'+':''}${nextNrr.toFixed(2)}`,
+    }
+  })
+
+  const updatedGroups=(tournament.groups||[]).map(g=>({
+    ...g,
+    table:updateRows(g.table),
+  }))
+
+  const matchForHistory={
+    id:match.id,
+    team1:match.team1,
+    team2:match.team2,
+    format:match.format,
+    status:'completed',
+    created:match.created,
+    innings:match.innings,
+  }
+
+  return{
+    ...tournament,
+    played:(tournament.played||0)+1,
+    status:(tournament.status==='upcoming'?'ongoing':tournament.status),
+    recentMatches:[matchForHistory,...(tournament.recentMatches||[])],
+    table:updateRows(tournament.table),
+    groups:updatedGroups,
+  }
+}
+
+export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB,tournaments,setTournaments,currentUser,authSession}){
+  const MIN_PLAYERS_PER_TEAM=8
+  const isAdmin=currentUser?.role==='admin'
+  const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',tournamentId:'',toss:'',bat:'',customOvers:'10',team1Players:[],team2Players:[],striker:'',nonStriker:'',firstBowler:''})
   const[viewMatch,setViewMatch]=useState(null)
   useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch])
   const allTeams=Object.keys(teamsDB)
@@ -583,16 +669,47 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   const battingFirstTeam=tossTeam?(newForm.bat==='Bat'?tossTeam:(tossTeam===newForm.team1?newForm.team2:newForm.team1)):''
   const battingFirstPlayers=battingFirstTeam===newForm.team1?newForm.team1Players:(battingFirstTeam===newForm.team2?newForm.team2Players:[])
   const bowlingFirstPlayers=bowlingFirstTeam===newForm.team1?newForm.team1Players:(bowlingFirstTeam===newForm.team2?newForm.team2Players:[])
+  const hasMinPlayers=newForm.team1Players.length>=MIN_PLAYERS_PER_TEAM&&newForm.team2Players.length>=MIN_PLAYERS_PER_TEAM
+  const canStartMatch=!!(newForm.team1&&newForm.team2&&hasMinPlayers&&newForm.toss&&newForm.bat&&newForm.striker&&newForm.nonStriker&&newForm.firstBowler)
+  const verifyCurrentUserPassword=()=>{
+    if(!(authSession?.authenticated&&authSession?.name===currentUser?.email)){
+      window.alert(`Please login as ${currentUser?.email||'your account'} using the Login button first.`)
+      return false
+    }
+    return true
+  }
+
+  useEffect(()=>{
+    const pending=(matches||[]).filter(m=>m.status==='completed'&&m.tournamentId&&!m.pointsPosted)
+    const mine=pending.filter(m=>isAdmin||isUserInMatch(m,currentUser?.email))
+    if(!mine.length)return
+    setTournaments(prev=>prev.map(t=>{
+      const relevant=mine.filter(m=>m.tournamentId===t.id)
+      if(!relevant.length)return t
+      return relevant.reduce((acc,m)=>applyMatchResultToTournament(acc,m),t)
+    }))
+    const doneIds=new Set(mine.map(m=>m.id))
+    setMatches(prev=>prev.map(m=>doneIds.has(m.id)?{...m,pointsPosted:true}:m))
+  },[matches,currentUser?.email,setMatches,setTournaments])
+
   const startMatch=()=>{
-    if(!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0)return
+    if(!newForm.team1||!newForm.team2||!hasMinPlayers){
+      window.alert(`Select at least ${MIN_PLAYERS_PER_TEAM} players for both teams before starting the match.`)
+      return
+    }
     if(!battingFirstTeam||!bowlingFirstTeam||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler)return
     const fmt=FORMATS[newForm.format]
     const custOv=newForm.format==='CUSTOM'?(parseInt(newForm.customOvers)||10):null
     const maxOv=newForm.format==='HUNDRED'?null:(custOv||fmt.overs)
     const secondBatting=battingFirstTeam===newForm.team1?newForm.team2:newForm.team1
+    const team1EmailMap=(teamsDB[newForm.team1]||[]).filter(p=>newForm.team1Players.includes(p.name)).map(p=>p.email).filter(Boolean)
+    const team2EmailMap=(teamsDB[newForm.team2]||[]).filter(p=>newForm.team2Players.includes(p.name)).map(p=>p.email).filter(Boolean)
     const m={
       id:Date.now(),team1:newForm.team1,team2:newForm.team2,format:newForm.format,customOvers:custOv,status:'live',
+      tournamentId:newForm.tournamentId?parseInt(newForm.tournamentId):null,
+      pointsPosted:false,
       team1Players:newForm.team1Players,team2Players:newForm.team2Players,
+      team1PlayerEmails:team1EmailMap,team2PlayerEmails:team2EmailMap,
       innings:[
         {batting:battingFirstTeam,score:0,wickets:0,overs:0,balls:0,extras:0,ballLog:[],snapshots:[],maxOvers:maxOv,striker:newForm.striker,nonStriker:newForm.nonStriker,bowler:newForm.firstBowler,outPlayers:[]},
         {batting:secondBatting,score:0,wickets:0,overs:0,balls:0,extras:0,ballLog:[],snapshots:[],maxOvers:maxOv,striker:'',nonStriker:'',bowler:'',outPlayers:[]}
@@ -603,7 +720,12 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   }
   if(activeScoring){
     const live=matches.find(m=>m.id===activeScoring.id)||activeScoring
-    return<LiveScorer match={live} setMatches={setMatches} css={css} isDark={isDark} onExit={()=>setActiveScoring(null)}/>
+    if(!isAdmin&&!isUserInMatch(live,currentUser?.email)){
+      window.alert('Only players in this match can do live scoring.')
+      setActiveScoring(null)
+      return null
+    }
+    return<LiveScorer match={live} setMatches={setMatches} css={css} isDark={isDark} onExit={()=>setActiveScoring(null)} currentUser={currentUser}/>
   }
   if(viewMatch){
     const m=matches.find(x=>x.id===viewMatch.id)||viewMatch
@@ -621,7 +743,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
             {['team1','team2'].map((key,i)=>(
               <div key={key}>
                 <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Team {i+1}</label>
-                <input value={newForm[key]} onChange={e=>{const t=e.target.value;const upd={...newForm,[key]:t,[`${key}Players`]:[],striker:'',nonStriker:'',firstBowler:'',toss:'',bat:''};setNewForm(upd)}} placeholder={`Team ${i+1} name`} list={`tl-${key}`} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',outline:'none'}}/>
+                <input value={newForm[key]} onChange={e=>{const t=e.target.value;const upd={...newForm,[key]:t,[`${key}Players`]:[],striker:'',nonStriker:'',firstBowler:'',toss:'',bat:'',tournamentId:''};setNewForm(upd)}} placeholder={`Team ${i+1} name`} list={`tl-${key}`} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',outline:'none'}}/>
                 <datalist id={`tl-${key}`}>{allTeams.map(t=><option key={t} value={t}/>)}</datalist>
                 {newForm[key]&&teamsDB[newForm[key]]&&(
                   <div style={{marginTop:10}}>
@@ -631,11 +753,22 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
                         <button key={p.id} onClick={()=>{const pList=newForm[`${key}Players`].includes(p.name)?newForm[`${key}Players`].filter(x=>x!==p.name):[...newForm[`${key}Players`],p.name];setNewForm(f=>({...f,[`${key}Players`]:pList}))}} style={{background:newForm[`${key}Players`].includes(p.name)?C.yellow:'transparent',border:`1px solid ${newForm[`${key}Players`].includes(p.name)?C.yellow:css.border}`,borderRadius:8,padding:'8px 6px',fontSize:10,fontWeight:600,cursor:'pointer',color:newForm[`${key}Players`].includes(p.name)?C.black:css.text,textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</button>
                       ))}
                     </div>
+                    <div style={{marginTop:6,fontSize:10,color:newForm[`${key}Players`].length>=MIN_PLAYERS_PER_TEAM?C.success:C.warn,fontWeight:700}}>
+                      Selected: {newForm[`${key}Players`].length} / min {MIN_PLAYERS_PER_TEAM}
+                    </div>
                   </div>
                 )}
               </div>
             ))}
-            {newForm.team1Players.length>0&&newForm.team2Players.length>0&&battingFirstTeam&&bowlingFirstTeam&&(
+            <div>
+              <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Tournament (optional)</label>
+              <select value={newForm.tournamentId} onChange={e=>setNewForm(f=>({...f,tournamentId:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:12,color:css.text,boxSizing:'border-box',cursor:'pointer'}}>
+                <option value="">No tournament (friendly match)</option>
+                {tournaments.filter(t=>(t.teams||[]).includes(newForm.team1)&&(t.teams||[]).includes(newForm.team2)).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              {newForm.team1&&newForm.team2&&tournaments.filter(t=>(t.teams||[]).includes(newForm.team1)&&(t.teams||[]).includes(newForm.team2)).length===0&&<div style={{fontSize:10,color:css.sub,marginTop:4,fontStyle:'italic'}}>No common tournaments found for these teams.</div>}
+            </div>
+            {hasMinPlayers&&battingFirstTeam&&bowlingFirstTeam&&(
               <>
                 <div style={{background:`${C.info}11`,border:`1px solid ${C.info}33`,borderRadius:10,padding:12}}>
                   <div style={{fontSize:11,color:css.sub,marginBottom:8}}>1st Innings: <span style={{color:C.info,fontWeight:800}}>{battingFirstTeam}</span> batting, <span style={{color:C.info,fontWeight:800}}>{bowlingFirstTeam}</span> bowling</div>
@@ -684,7 +817,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
                 {['Bat','Bowl'].map(opt=><button key={opt} onClick={()=>setNewForm(f=>({...f,bat:opt,striker:'',nonStriker:'',firstBowler:''}))} disabled={!newForm.toss} style={{background:newForm.bat===opt?C.yellow:css.bg,color:newForm.bat===opt?C.black:css.text,border:`1px solid ${newForm.bat===opt?C.yellow:css.border}`,borderRadius:8,padding:10,fontSize:13,fontWeight:600,cursor:!newForm.toss?'not-allowed':'pointer',opacity:!newForm.toss?0.6:1}}>{opt} First</button>)}
               </div>
             </div>
-            <button onClick={startMatch} disabled={!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0||!newForm.toss||!newForm.bat||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler} style={{background:(!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0||!newForm.toss||!newForm.bat||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler)?`linear-gradient(135deg,#666,#444)`:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:14,fontSize:14,fontWeight:800,color:(!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0||!newForm.toss||!newForm.bat||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler)?'#999':C.black,cursor:(!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0||!newForm.toss||!newForm.bat||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler)?'not-allowed':'pointer',marginTop:4,boxShadow:(!newForm.team1||!newForm.team2||newForm.team1Players.length===0||newForm.team2Players.length===0||!newForm.toss||!newForm.bat||!newForm.striker||!newForm.nonStriker||!newForm.firstBowler)?'none':`0 4px 16px ${C.yellow}44`}}>Start Match 🏏</button>
+            <button onClick={startMatch} disabled={!canStartMatch} style={{background:!canStartMatch?`linear-gradient(135deg,#666,#444)`:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:14,fontSize:14,fontWeight:800,color:!canStartMatch?'#999':C.black,cursor:!canStartMatch?'not-allowed':'pointer',marginTop:4,boxShadow:!canStartMatch?'none':`0 4px 16px ${C.yellow}44`}}>Start Match 🏏</button>
           </div>
         </div>
       ):(
@@ -692,7 +825,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
       )}
       <GSection title="ALL MATCHES" css={css}>
         {matches.length===0&&<div style={{textAlign:'center',padding:30,color:css.sub}}><div style={{fontSize:36,marginBottom:8}}>🏏</div><div style={{fontSize:13}}>No matches yet!</div></div>}
-        {[...matches].reverse().map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(m.status==='live')setActiveScoring(m);else setViewMatch(m)}}/>)}
+        {[...matches].reverse().map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(m.status==='live'){if(!isAdmin&&!isUserInMatch(m,currentUser?.email)){window.alert('Only players in this match can do live scoring.');return}if(!verifyCurrentUserPassword())return;setActiveScoring(m)}else setViewMatch(m)}}/>)}
       </GSection>
     </div>
   )

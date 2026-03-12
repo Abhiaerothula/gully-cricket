@@ -1,8 +1,17 @@
 import{C}from'../data/constants.js'
-export function PAv({name,size=36}){
+export function PAv({name,size=36,photo}){
   const pal=[C.yellow,'#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#9b59b6','#FF9500','#22C55E']
   const idx=name?name.charCodeAt(0)%pal.length:0
   const init=name?name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase():'?'
+  if(photo){
+    return(
+      <img
+        src={photo}
+        alt={name||'player'}
+        style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`2px solid ${C.yellow}33`}}
+      />
+    )
+  }
   return(<div style={{width:size,height:size,borderRadius:'50%',flexShrink:0,background:`linear-gradient(135deg,${pal[idx]},${pal[(idx+3)%pal.length]})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.32,fontWeight:900,color:C.black}}>{init}</div>)
 }
 export function GSection({title,css,children,onMore}){
