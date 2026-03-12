@@ -45,7 +45,6 @@ export const DEFAULT_TEAMS_DB={
     mkP(604,'Player7','DD','Batsman',120,2,6,5,160,14,3,'player7@localhost'),
     mkP(605,'Player8','DD','Wicket-Keeper',90,0,12,5,140,10,3,'player8@localhost'),
   ],
-  ],
 }
 
 // ── Generate 100 realistic cricket balls ──────────────────────────────────────
