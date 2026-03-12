@@ -34,7 +34,7 @@ export default function App(){
   const css=THEMES[theme]
   const isDark=theme==='dark'
   const allPlayers=Object.values(teamsDB).flat()
-  const adminEmail=(import.meta.env.VITE_ADMIN_EMAIL||'').toLowerCase()
+  const adminEmail=(import.meta.env.VITE_ADMIN_EMAIL||'abhi.aero.thula@gmail.com').toLowerCase()
   const activeUser=firebaseEnabled?authUser:localAuthUser
   const userEmail=activeUser?.email||''
   const currentUser=useMemo(()=>({
