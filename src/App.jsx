@@ -157,7 +157,7 @@ export default function App(){
         {tab==='home'&&<HomePage css={css} isDark={isDark} matches={matches} setTab={setTab} setShowNewMatch={setShowNewMatch} setActiveScoring={setActiveScoring} notices={notices} leaderboards={leaderboards} allPlayers={allPlayers}/>} 
         {tab==='score'&&<ScorePage css={css} isDark={isDark} matches={matches} setMatches={setMatches} showNewMatch={showNewMatch} setShowNewMatch={setShowNewMatch} activeScoring={activeScoring} setActiveScoring={setActiveScoring} teamsDB={teamsDB} tournaments={tournaments} setTournaments={setTournaments} currentUser={currentUser} authSession={authSession}/>}
         {tab==='league'&&<LeaguePage css={css} isDark={isDark} tournaments={tournaments} setTournaments={setTournaments} teamsDB={teamsDB} currentUser={currentUser} authSession={authSession}/>} 
-        {tab==='players'&&<PlayersPage css={css} isDark={isDark} teamsDB={teamsDB} setTeamsDB={setTeamsDB} premium={premium} setPremium={setPremium}/>}
+        {tab==='players'&&<PlayersPage css={css} isDark={isDark} teamsDB={teamsDB} setTeamsDB={setTeamsDB} premium={premium} setPremium={setPremium} currentUser={currentUser}/>} 
         {tab==='news'&&<NewsPage css={css} isDark={isDark} notices={notices} noticeInput={noticeInput} setNoticeInput={setNoticeInput} postNotice={postNotice}/>}
       </main>
       {/* MOBILE BOTTOM NAV */}

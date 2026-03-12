@@ -13,7 +13,7 @@ function fileToDataUrl(file){
   })
 }
 
-export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPremium}){
+export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPremium,currentUser}){
   const[selTeam,setSelTeam]=useState(Object.keys(teamsDB)[0]||'')
   const[selectedPlayerId,setSelectedPlayerId]=useState(null)
   const[showAdd,setShowAdd]=useState(false)
@@ -22,6 +22,7 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPr
   const[editP,setEditP]=useState(null)
   const[pForm,setPForm]=useState({name:'',email:'',photo:'',role:'Batsman',runs:'0',wickets:'0',catches:'0',matches:'0',balls:'0',fours:'0',sixes:'0'})
   const[showPrem,setShowPrem]=useState(false)
+  const isAdmin=currentUser?.role==='admin'
   const teams=Object.keys(teamsDB)
   const teamPls=selTeam?(teamsDB[selTeam]||[]):[]
   const selectedPlayer=teamPls.find(p=>p.id===selectedPlayerId)||null
@@ -40,6 +41,10 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPr
   const openEdit=p=>{setEditP(p);setPForm({name:p.name,email:p.email||'',photo:p.photo||'',role:p.role||'Batsman',runs:''+p.runs,wickets:''+p.wickets,catches:''+p.catches,matches:''+p.matches,balls:''+p.balls,fours:''+p.fours,sixes:''+p.sixes});setShowAdd(true)}
   const addTeam=()=>{if(!newTName.trim())return;setTeamsDB(prev=>({...prev,[newTName.trim()]:[]}));setSelTeam(newTName.trim());setNewTName('');setShowAddT(false)}
   const delTeam=()=>{
+    if(!isAdmin){
+      window.alert('Only Admin can delete teams.')
+      return
+    }
     if(!selTeam)return
     const players=(teamsDB[selTeam]||[]).length
     const ok=window.confirm(`Delete team "${selTeam}" from Players DB? This will remove ${players} player(s).`)
@@ -72,7 +77,7 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,premium,setPr
       {selTeam&&(
         <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8}}>
           <button onClick={()=>{setEditP(null);resetForm();setShowAdd(true)}} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 12px ${C.yellow}33`}}><UserPlus size={15}/>Add Player to {selTeam}</button>
-          <button onClick={delTeam} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:10,padding:'0 12px',fontSize:12,fontWeight:700,color:C.danger,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Trash2 size={14}/>Delete Team</button>
+          {isAdmin&&<button onClick={delTeam} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:10,padding:'0 12px',fontSize:12,fontWeight:700,color:C.danger,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Trash2 size={14}/>Delete Team</button>}
         </div>
       )}
       {showAdd&&(<div style={{background:css.card,borderRadius:16,padding:16,border:`1px solid ${C.yellow}44`}}>
