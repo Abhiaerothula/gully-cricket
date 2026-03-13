@@ -1,0 +1,11 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:#0A0A0A;overscroll-behavior:none}
+#root{height:100%}
+button{transition:opacity .15s,transform .1s;cursor:pointer}
+button:active{transform:scale(0.97)}
+input,button,textarea,select{font-family:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+input[type=number]{-moz-appearance:textfield}
