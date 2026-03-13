@@ -240,7 +240,7 @@ function LiveScorer({match,setMatches,css,isDark,teamsDB,onExit}){
 export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB}){
   const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',toss:'',bat:'',customOvers:''})
   const[search,setSearch]=useState('')
-  useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch])
+  useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch,setActiveScoring])
   const allTeams=Object.keys(teamsDB)
   const startMatch=()=>{
     if(!newForm.team1||!newForm.team2)return
