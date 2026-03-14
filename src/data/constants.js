@@ -6,7 +6,7 @@ export const C={
 }
 export const THEMES={
   dark:{bg:C.black,card:C.darkGray,card2:C.midGray,border:C.borderDark,text:C.white,sub:C.midText,accent:C.yellow,accentText:C.black,nav:'rgba(10,10,10,0.97)'},
-  light:{bg:C.offWhite,card:C.white,card2:C.lightGray,border:'#DDDDDD',text:C.black,sub:'#666666',accent:'#C9A800',accentText:C.black,nav:'rgba(255,255,255,0.97)'},
+  light:{bg:C.offWhite,card:C.white,card2:C.lightGray,border:'#CCCCCC',text:C.black,sub:'#444444',accent:'#9E8400',accentText:C.black,nav:'rgba(255,255,255,0.97)'},
 }
 export const FORMATS={
   T20:{overs:20,balls:null,powerplay:[1,6],name:'T20'},

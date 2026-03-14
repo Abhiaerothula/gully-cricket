@@ -1,5 +1,5 @@
 import{useState,useEffect,useCallback}from'react'
-import{Plus,X,ChevronDown,RotateCcw}from'lucide-react'
+import{Plus,X,ChevronDown,RotateCcw,Trash2,Search,Award}from'lucide-react'
 import{C,FORMATS,WICKET_TYPES,EXTRAS_TYPES}from'../data/constants.js'
 import{GSection,MatchCard,GIn}from'../components/Shared.jsx'
 
@@ -15,6 +15,7 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
   const[showBowlerChange,setShowBowlerChange]=useState(false)
   const[nextBowler,setNextBowler]=useState('')
   const[lastBowlerPrompt,setLastBowlerPrompt]=useState('')
+  const[showOverHistory,setShowOverHistory]=useState(false)
   const[tempTeam1,setTempTeam1]=useState(match.team1)
   const[tempTeam2,setTempTeam2]=useState(match.team2)
   const[setupStriker,setSetupStriker]=useState('')
@@ -289,7 +290,10 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
         <div style={{background:css.card,borderRadius:12,padding:12,border:`1px solid ${css.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <span style={{fontSize:10,color:css.sub,letterSpacing:1}}>THIS OVER</span>
-            {canUndo&&canScore&&<button onClick={undoLast} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'3px 8px',cursor:'pointer',color:C.danger,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><RotateCcw size={10}/>Undo last</button>}
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              {(ci.ballLog||[]).length>6&&<button onClick={()=>setShowOverHistory(v=>!v)} style={{background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:6,padding:'3px 8px',cursor:'pointer',color:C.info,fontSize:10,fontWeight:700}}>{showOverHistory?'▲ Hide':'▼ All Overs'}</button>}
+              {canUndo&&canScore&&<button onClick={undoLast} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'3px 8px',cursor:'pointer',color:C.danger,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',gap:4}}><RotateCcw size={10}/>Undo last</button>}
+            </div>
           </div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             {(ci.ballLog||[]).slice(-6).map((b,i)=>{const{bg,col}=bStyle(b);const isNB=b.startsWith('NB');return(
@@ -300,6 +304,31 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
             )})}
             {!(ci.ballLog||[]).length&&<span style={{fontSize:12,color:css.sub}}>No balls yet</span>}
           </div>
+          {showOverHistory&&(ci.ballLog||[]).length>0&&(()=>{
+            const overs=[],snaps=ci.snapshots||[];let cur=[],lc=0
+            const bowlerPerOver=[]
+            ;(ci.ballLog||[]).forEach((b,i)=>{
+              if(cur.length===0&&snaps[i])bowlerPerOver[overs.length]=snaps[i].bowler||'—'
+              cur.push(b);const ie=b.startsWith('Wd')||b.startsWith('NB');if(!ie)lc++;if(lc===6&&!ie){overs.push([...cur]);cur=[];lc=0}
+            })
+            if(cur.length){overs.push(cur)}
+            return(
+              <div style={{marginTop:10,borderTop:`1px solid ${css.border}`,paddingTop:8}}>
+                <div style={{fontSize:10,color:css.sub,letterSpacing:1,marginBottom:6}}>OVER-BY-OVER SCORECARD</div>
+                {overs.map((over,oi)=>{
+                  const runs=over.reduce((s,b)=>{if(b.startsWith('Wd')||b.startsWith('NB'))return s+1;if(b==='4')return s+4;if(b==='6')return s+6;if(b==='W'||b.startsWith('W+'))return s;return s+(parseInt(b)||0)},0)
+                  return(
+                    <div key={oi} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:oi<overs.length-1?`1px solid ${css.border}`:'none'}}>
+                      <span style={{fontSize:10,color:css.sub,minWidth:40,fontWeight:700}}>Ov {oi+1}</span>
+                      <span style={{fontSize:9,color:C.info,minWidth:50,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{bowlerPerOver[oi]||'—'}</span>
+                      <div style={{display:'flex',gap:3,flex:1,flexWrap:'wrap'}}>{over.map((b,bi)=>{const{bg,col}=bStyle(b);return<div key={bi} style={{width:22,height:22,borderRadius:'50%',background:bg,color:col,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700}}>{b}</div>})}</div>
+                      <span style={{fontSize:12,fontWeight:800,color:C.yellow,minWidth:24,textAlign:'right'}}>{runs}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
         {match.status==='live'&&!needsInningsSetup&&!showBowlerChange&&canScore&&(
           <>
@@ -400,14 +429,14 @@ function LiveScorer({match,setMatches,css,isDark,onExit,currentUser}){
   )
 }
 
-function ballColor(b){
+function ballColor(b,isDark=true){
   if(b==='6')return{bg:C.yellow,col:C.black}
   if(b==='4')return{bg:C.success,col:'#fff'}
   if(b&&(b==='W'||b.startsWith('W+')))return{bg:C.danger,col:'#fff'}
   if(b&&b.startsWith('NB'))return{bg:C.warn,col:C.black}
   if(b&&b.startsWith('Wd'))return{bg:'#FF6B35',col:'#fff'}
-  if(b==='0')return{bg:'#333',col:'#555'}
-  return{bg:'#555',col:'#fff'}
+  if(b==='0')return{bg:isDark?'#333':'#AAAAAA',col:isDark?'#888':C.black}
+  return{bg:isDark?'#555':'#CCCCCC',col:isDark?'#fff':C.black}
 }
 
 function getScorecard(innings){
@@ -476,18 +505,19 @@ function BallsViewScore({innings,css,isDark}){
         <div key={oi} style={{marginBottom:10}}>
           <div style={{fontSize:10,color:css.sub,marginBottom:4,letterSpacing:0.5}}>Over {oi+1}</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {over.map(({b,i})=>{const{bg,col}=ballColor(b);return<div key={i} style={{width:28,height:28,borderRadius:'50%',background:bg,color:col,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,flexShrink:0}}>{b}</div>})}
+            {over.map(({b,i})=>{const{bg,col}=ballColor(b,isDark);return<div key={i} style={{width:28,height:28,borderRadius:'50%',background:bg,color:col,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,flexShrink:0}}>{b}</div>})}
           </div>
         </div>
       ))}
-      {overs.length>3&&<button onClick={()=>setShow(v=>!v)} style={{background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'6px 12px',fontSize:11,color:C.yellow,cursor:'pointer',width:'100%',marginTop:4,fontWeight:700}}>{show?'▲ Less':`▼ All ${overs.length} Overs`}</button>}
+      {overs.length>3&&<button onClick={()=>setShow(v=>!v)} style={{background:`${css.accent}22`,border:`1px solid ${css.accent}44`,borderRadius:8,padding:'6px 12px',fontSize:11,color:css.accent,cursor:'pointer',width:'100%',marginTop:4,fontWeight:700}}>{show?'▲ Less':`▼ All ${overs.length} Overs`}</button>}
     </div>
   )
 }
 
-function MatchAnalysisView({match,onBack,css,isDark}){
+function MatchAnalysisView({match,onBack,css,isDark,setMatches}){
   const[innIdx,setInnIdx]=useState(0)
   const[tab,setTab]=useState('scorecard')
+  const[showPotm,setShowPotm]=useState(false)
   const ci=match.innings[innIdx]||match.innings[0]
   const sc=getScorecard(ci)
   const comm=getCommentary(ci)
@@ -516,7 +546,33 @@ function MatchAnalysisView({match,onBack,css,isDark}){
           ))}
         </div>
         {winner&&<div style={{marginTop:10,background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'8px 12px',textAlign:'center',fontSize:12,fontWeight:700,color:C.yellow}}>🏆 {winner}</div>}
+        {match.potm&&<div style={{marginTop:6,background:`${C.success}22`,border:`1px solid ${C.success}44`,borderRadius:8,padding:'6px 12px',textAlign:'center',fontSize:11,fontWeight:700,color:C.success}}>🏅 Player of the Match: {match.potm}</div>}
+        {match.status==='completed'&&!match.potm&&setMatches&&(
+          <button onClick={()=>setShowPotm(true)} style={{marginTop:6,background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:8,padding:'8px 12px',fontSize:11,fontWeight:700,color:C.info,cursor:'pointer',width:'100%'}}>🏅 Select Player of the Match</button>
+        )}
       </div>
+      {showPotm&&(()=>{
+        const allPlayers=[...(match.team1Players||[]),...(match.team2Players||[])]
+        const selectPotm=(name)=>{
+          setMatches(prev=>prev.map(m=>m.id===match.id?{...m,potm:name}:m))
+          setShowPotm(false)
+        }
+        return(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div style={{width:'100%',maxWidth:420,background:css.card,border:`2px solid ${C.yellow}`,borderRadius:16,padding:18}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <span style={{fontWeight:800,fontSize:15,color:C.yellow}}>🏅 Player of the Match</span>
+                <button onClick={()=>setShowPotm(false)} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={16}/></button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,maxHeight:300,overflowY:'auto'}}>
+                {allPlayers.map(p=>(
+                  <button key={p} onClick={()=>selectPotm(p)} style={{background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 8px',fontSize:12,fontWeight:600,cursor:'pointer',color:css.text,textAlign:'center'}}>{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       <div style={{display:'flex',gap:6,padding:'12px 14px 0',overflowX:'auto'}}>
         {[{id:'scorecard',label:'📋 Scorecard'},{id:'balls',label:'🎯 Balls'},{id:'commentary',label:'💬 Commentary'}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{background:tab===t.id?C.yellow:css.card,color:tab===t.id?C.black:css.text,border:`1px solid ${tab===t.id?C.yellow:css.border}`,borderRadius:20,padding:'7px 14px',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{t.label}</button>
@@ -568,7 +624,7 @@ function MatchAnalysisView({match,onBack,css,isDark}){
         {tab==='commentary'&&(
           <div style={{background:css.card,borderRadius:14,padding:14,border:`1px solid ${css.border}`}}>
             {comm.length===0&&<div style={{textAlign:'center',padding:20,color:css.sub,fontSize:13}}>No commentary yet.</div>}
-            {comm.map((line,i)=>{const{bg,col}=ballColor(line.ball);return(
+            {comm.map((line,i)=>{const{bg,col}=ballColor(line.ball,isDark);return(
               <div key={i} style={{display:'flex',gap:10,padding:'10px 0',borderBottom:i<comm.length-1?`1px solid ${css.border}`:'none',alignItems:'flex-start'}}>
                 <div style={{fontSize:9,color:css.sub,minWidth:28,fontWeight:700,paddingTop:3}}>{line.ref}</div>
                 <div style={{width:24,height:24,borderRadius:'50%',flexShrink:0,background:bg,color:col,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700}}>{line.ball}</div>
@@ -661,6 +717,8 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   const isAdmin=currentUser?.role==='admin'
   const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',tournamentId:'',toss:'',bat:'',customOvers:'10',team1Players:[],team2Players:[],striker:'',nonStriker:'',firstBowler:''})
   const[viewMatch,setViewMatch]=useState(null)
+  const[matchSearch,setMatchSearch]=useState('')
+  const[filterFormat,setFilterFormat]=useState('')
   useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch,setActiveScoring])
   const allTeams=Object.keys(teamsDB)
   const tossTeam=(newForm.toss===newForm.team1||newForm.toss===newForm.team2)?newForm.toss:''
@@ -728,14 +786,14 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   }
   if(viewMatch){
     const m=matches.find(x=>x.id===viewMatch.id)||viewMatch
-    return<MatchAnalysisView match={m} onBack={()=>setViewMatch(null)} css={css} isDark={isDark}/>
+    return<MatchAnalysisView match={m} onBack={()=>setViewMatch(null)} css={css} isDark={isDark} setMatches={setMatches}/>
   }
   return(
     <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:14}}>
       {showNewMatch?(
         <div style={{background:css.card,borderRadius:16,padding:18,border:`1px solid ${C.yellow}44`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <span style={{fontWeight:800,fontSize:16,color:C.yellow}}>New Match</span>
+            <span style={{fontWeight:800,fontSize:16,color:css.accent}}>New Match</span>
             <button onClick={()=>setShowNewMatch(false)} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={18}/></button>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -796,12 +854,15 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
               </div>
               {newForm.format==='CUSTOM'&&(
                 <div style={{marginTop:10}}>
-                  <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Overs per Innings <span style={{color:C.yellow}}>(1–50)</span></label>
-                  <input type="number" min="1" max="50" value={newForm.customOvers} onChange={e=>setNewForm(f=>({...f,customOvers:String(Math.max(1,Math.min(50,parseInt(e.target.value)||1)))}))} style={{width:'100%',background:css.bg,border:`1px solid ${C.yellow}55`,borderRadius:8,padding:'10px 12px',fontSize:14,fontWeight:700,color:C.yellow,boxSizing:'border-box',outline:'none'}}/>
+                  <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Overs per Innings</label>
+                  <input type="number" min="1" value={newForm.customOvers} onChange={e=>{const v=parseInt(e.target.value);if(v>0)setNewForm(f=>({...f,customOvers:String(v)}))}} style={{width:'100%',background:css.bg,border:`1px solid ${css.accent}55`,borderRadius:8,padding:'10px 12px',fontSize:14,fontWeight:700,color:css.accent,boxSizing:'border-box',outline:'none'}}/>
+                  <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                    {[2,3,4,5,6,8,10,15,20].map(o=><button key={o} onClick={()=>setNewForm(f=>({...f,customOvers:String(o)}))} style={{background:parseInt(newForm.customOvers)===o?C.yellow:`${css.accent}22`,color:parseInt(newForm.customOvers)===o?C.black:css.accent,border:`1px solid ${css.accent}44`,borderRadius:8,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{o} ov</button>)}
+                  </div>
                 </div>
               )}
               {newForm.format==='HUNDRED'&&(
-                <div style={{marginTop:8,background:`${C.yellow}11`,border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'8px 12px',fontSize:11,color:css.sub}}>💯 Each team faces exactly <span style={{color:C.yellow,fontWeight:800}}>100 balls</span>. Innings ends on 10 wickets or 100 balls.</div>
+                <div style={{marginTop:8,background:`${css.accent}11`,border:`1px solid ${css.accent}33`,borderRadius:8,padding:'8px 12px',fontSize:11,color:css.sub}}>💯 Each team faces exactly <span style={{color:css.accent,fontWeight:800}}>100 balls</span>. Innings ends on 10 wickets or 100 balls.</div>
               )}
             </div>
             <div>
@@ -822,9 +883,28 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
       ):(
         <button onClick={()=>setShowNewMatch(true)} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:12,padding:16,fontSize:14,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 16px ${C.yellow}44`}}><Plus size={18}/>Start New Match</button>
       )}
-      <GSection title="ALL MATCHES" css={css}>
+      <GSection title={`ALL MATCHES (${matches.length})`} css={css}>
+        <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+          <div style={{flex:1,minWidth:140,position:'relative'}}>
+            <Search size={14} style={{position:'absolute',left:10,top:10,color:css.sub}}/>
+            <input value={matchSearch} onChange={e=>setMatchSearch(e.target.value)} placeholder="Search team or format..." style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px 8px 30px',fontSize:12,color:css.text,boxSizing:'border-box',outline:'none'}}/>
+          </div>
+          <select value={filterFormat} onChange={e=>setFilterFormat(e.target.value)} style={{background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px',fontSize:11,color:css.text,cursor:'pointer'}}>
+            <option value="">All Formats</option>
+            {Object.keys(FORMATS).map(f=><option key={f} value={f}>{FORMATS[f].name}</option>)}
+          </select>
+        </div>
         {matches.length===0&&<div style={{textAlign:'center',padding:30,color:css.sub}}><div style={{fontSize:36,marginBottom:8}}>🏏</div><div style={{fontSize:13}}>No matches yet!</div></div>}
-        {[...matches].reverse().map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(m.status==='live'){if(!verifyCurrentUserPassword())return;setActiveScoring(m)}else{setViewMatch(m)}}}/>)}
+        {(()=>{
+          const q=matchSearch.toLowerCase()
+          const filtered=[...matches].reverse().filter(m=>{
+            if(filterFormat&&m.format!==filterFormat)return false
+            if(q&&!m.team1.toLowerCase().includes(q)&&!m.team2.toLowerCase().includes(q)&&!m.format.toLowerCase().includes(q))return false
+            return true
+          })
+          if(filtered.length===0&&matches.length>0)return<div style={{textAlign:'center',padding:20,color:css.sub,fontSize:12}}>No matches match your search.</div>
+          return filtered.map(m=><MatchCard key={m.id} match={m} css={css} isDark={isDark} onClick={()=>{if(m.status==='live'){if(!verifyCurrentUserPassword())return;setActiveScoring(m)}else{setViewMatch(m)}}} onDelete={currentUser?.role==='admin'?(id)=>{if(window.confirm(`Delete match ${m.team1} vs ${m.team2}?`))setMatches(prev=>prev.filter(x=>x.id!==id))}:undefined}/>)
+        })()}
       </GSection>
     </div>
   )

@@ -81,6 +81,14 @@ function mkInn(batting,maxOvers=20){
   return{batting,...calcInnings(gen100Balls(),maxOvers)}
 }
 
+export const DEFAULT_CAPTAINS={
+  'Street Kings':'',
+  'Park Blasters':'',
+  'Colony XI':'',
+  'Night Riders':'',
+  'DRS':'abhi.aero.thula@gmail.com',
+  'DD':'susheel@localhost',
+}
 export const DEFAULT_TOURNAMENTS=[
   {
     id:1,name:'Gully Premier League 2025',shortName:'GPL',

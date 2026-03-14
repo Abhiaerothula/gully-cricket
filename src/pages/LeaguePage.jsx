@@ -3,16 +3,17 @@ import{Plus,X,ChevronRight,UserPlus,Trash2}from'lucide-react'
 import{BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}from'recharts'
 import{C,FORMATS,COLORS_BAR}from'../data/constants.js'
 import{GSection,PAv,GIn,MatchCard}from'../components/Shared.jsx'
+import{generateFixtures}from'../utils/ballUtils.js'
 
 // Ball dot renderer
-function BallDot({b,size=28}){
-  let bg=C.midGray,col='#fff'
+function BallDot({b,size=28,isDark=true}){
+  let bg=isDark?C.midGray:'#CCCCCC',col=isDark?'#fff':C.black
   if(b==='6'){bg=C.yellow;col=C.black}
   else if(b==='4'){bg=C.success;col='#fff'}
   else if(b==='W'){bg=C.danger;col='#fff'}
   else if(b&&b.startsWith('NB')){bg=C.warn;col=C.black}
   else if(b&&b.startsWith('Wd')){bg='#FF6B35';col='#fff'}
-  else if(b==='0'){bg='#333';col='#666'}
+  else if(b==='0'){bg=isDark?'#333':'#AAAAAA';col=isDark?'#888':C.black}
   return(
     <div style={{width:size,height:size,borderRadius:'50%',background:bg,color:col,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.3,fontWeight:700,flexShrink:0,boxShadow:b==='6'?`0 0 6px ${C.yellow}66`:b==='W'?`0 0 4px ${C.danger}66`:b==='4'?`0 0 4px ${C.success}66`:'none'}}>{b}</div>
   )
@@ -41,13 +42,13 @@ function BallsView({innings,css,isDark}){
   return(
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <span style={{fontSize:11,color:css.sub}}>{innings.batting} · {innings.score}/{innings.wickets} ({innings.oversDisplay||'0.0'}) · <span style={{color:C.yellow,fontWeight:700}}>{total} balls</span></span>
+        <span style={{fontSize:11,color:css.sub}}>{innings.batting} · {innings.score}/{innings.wickets} ({innings.oversDisplay||'0.0'}) · <span style={{color:css.accent,fontWeight:700}}>{total} balls</span></span>
       </div>
       {displayOvers.map((over,oi)=>(
         <div key={oi} style={{marginBottom:10}}>
           <div style={{fontSize:10,color:css.sub,marginBottom:5,letterSpacing:0.5}}>Over {oi+1}</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-            {over.map(({b,i})=><BallDot key={i} b={b} size={26}/>)}
+            {over.map(({b,i})=><BallDot key={i} b={b} size={26} isDark={isDark}/>)}
             {oi<displayOvers.length-1&&<span style={{fontSize:11,color:css.sub,marginLeft:4,fontWeight:700}}>{over.reduce((s,{b})=>{
               if(b.startsWith('Wd')||b.startsWith('NB'))return s+1
               if(b==='4')return s+4
@@ -59,12 +60,12 @@ function BallsView({innings,css,isDark}){
         </div>
       ))}
       {overs.length>3&&(
-        <button onClick={()=>setShow100(v=>!v)} style={{background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'7px 14px',fontSize:11,fontWeight:700,color:C.yellow,cursor:'pointer',width:'100%',marginTop:4}}>
+        <button onClick={()=>setShow100(v=>!v)} style={{background:`${css.accent}22`,border:`1px solid ${css.accent}44`,borderRadius:8,padding:'7px 14px',fontSize:11,fontWeight:700,color:css.accent,cursor:'pointer',width:'100%',marginTop:4}}>
           {show100?'▲ Show Less':`▼ Show All ${overs.length} Overs (${total} balls)`}
         </button>
       )}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
-        {[{l:'0',bg:'#333'},{l:'1',bg:C.midGray},{l:'4',bg:C.success},{l:'6',bg:C.yellow},{l:'W',bg:C.danger},{l:'Wd',bg:'#FF6B35'},{l:'NB',bg:C.warn}].map(x=>(
+        {[{l:'0',bg:isDark?'#333':'#AAAAAA'},{l:'1',bg:isDark?C.midGray:'#CCCCCC'},{l:'4',bg:C.success},{l:'6',bg:C.yellow},{l:'W',bg:C.danger},{l:'Wd',bg:'#FF6B35'},{l:'NB',bg:C.warn}].map(x=>(
           <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:css.sub}}>
             <span style={{width:12,height:12,borderRadius:'50%',background:x.bg,display:'inline-block'}}/>
             {x.l}={balls.filter(b=>b===x.l||(x.l==='NB'&&b.startsWith('NB'))||(x.l==='Wd'&&b.startsWith('Wd'))).length}
@@ -156,6 +157,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
       teams:tl.slice(gi*4,(gi+1)*4),
       table:tl.slice(gi*4,(gi+1)*4).map(team=>({team,p:0,w:0,l:0,pts:0,nrr:'—'}))
     })):null
+    const fixtures=generateFixtures(tl)
     const t={
       id:Date.now(),name:nForm.name,shortName:nForm.name.slice(0,6).toUpperCase(),
       format:nForm.format,status:'upcoming',emoji:'🏏',
@@ -165,6 +167,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
       recentMatches:[],hasGroups:nForm.hasGroups,groups:groups,
       accessUsers:[currentUser?.email||'admin@example.com'],
       table:tl.map(team=>({team,p:0,w:0,l:0,pts:0,nrr:'—'})),
+      fixtures:fixtures,
     }
     setTournaments(p=>[t,...p]);setShowNew(false);setNForm({name:'',format:'T20',teams:'',hasGroups:false});setSelectedTeams([])
   }
@@ -279,7 +282,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     const tp=t.teams.flatMap(tn=>teamsDB[tn]||[])
     const orange=[...tp].sort((a,b)=>b.runs-a.runs).slice(0,5)
     const purple=[...tp].sort((a,b)=>b.wickets-a.wickets).slice(0,5)
-    const iTabs=[{id:'table',label:'🏟️ Table'},{id:'matches',label:'🏏 Matches'},{id:'batting',label:'🟠 Batting'},{id:'bowling',label:'🟣 Bowling'},{id:'teams',label:'👥 Teams'},{id:'chart',label:'📊 Chart'}]
+    const iTabs=[{id:'table',label:'🏟️ Table'},{id:'fixtures',label:'📋 Fixtures'},{id:'matches',label:'🏏 Matches'},{id:'batting',label:'🟠 Batting'},{id:'bowling',label:'🟣 Bowling'},{id:'teams',label:'👥 Teams'},{id:'chart',label:'📊 Chart'}]
     return(
       <div style={{paddingBottom:12}}>
         <div style={{background:`linear-gradient(135deg,${C.black},${C.darkGray})`,padding:'14px',borderBottom:`2px solid ${t.color}`}}>
@@ -380,13 +383,31 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
               )}
             </div>
           )}
+          {innerT==='fixtures'&&(
+            <GSection title="📋 FIXTURES" css={css}>
+              {(!t.fixtures||t.fixtures.length===0)?<div style={{textAlign:'center',padding:24,color:css.sub,fontSize:13}}>No fixtures generated.</div>:(
+                t.fixtures.map((f,i)=>{
+                  const played=t.recentMatches?.find(m=>(m.team1===f.home&&m.team2===f.away)||(m.team1===f.away&&m.team2===f.home))
+                  return(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',marginBottom:6,background:isDark?C.midGray:C.white,borderRadius:10,border:`1px solid ${played?`${C.success}44`:css.border}`,boxShadow:isDark?'none':'0 1px 3px rgba(0,0,0,0.08)'}}>
+                      <div style={{fontSize:12,fontWeight:800,color:css.sub,width:22,textAlign:'center'}}>{i+1}</div>
+                      <div style={{flex:1,fontSize:13,fontWeight:600}}>{f.home}</div>
+                      <div style={{fontSize:10,color:css.sub,fontWeight:700}}>vs</div>
+                      <div style={{flex:1,fontSize:13,fontWeight:600,textAlign:'right'}}>{f.away}</div>
+                      <div style={{fontSize:9,fontWeight:700,padding:'3px 8px',borderRadius:6,background:played?`${C.success}22`:`${C.yellow}22`,color:played?C.success:C.yellow}}>{played?'✅ Played':'⏳ Upcoming'}</div>
+                    </div>
+                  )
+                })
+              )}
+            </GSection>
+          )}
           {innerT==='matches'&&(
             <GSection title="🏏 RECENT MATCHES" css={css}>
               {(!t.recentMatches||t.recentMatches.length===0)&&<div style={{textAlign:'center',padding:24,color:css.sub,fontSize:13}}>No match data yet.</div>}
               {(t.recentMatches||[]).map(m=>(
-                <div key={m.id} onClick={()=>{setSelMatch(m);setSelInnings(0)}} style={{background:isDark?C.midGray:'#f8f8f8',borderRadius:12,padding:12,marginBottom:8,border:`1px solid ${css.border}`,cursor:'pointer'}}>
+                <div key={m.id} onClick={()=>{setSelMatch(m);setSelInnings(0)}} style={{background:isDark?C.midGray:C.white,borderRadius:12,padding:12,marginBottom:8,border:`1px solid ${css.border}`,cursor:'pointer',boxShadow:isDark?'none':'0 1px 3px rgba(0,0,0,0.08)'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:C.yellow,background:`${C.yellow}22`,padding:'2px 6px',borderRadius:4}}>✅ COMPLETED · {m.format}</span>
+                    <span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:css.accent,background:`${css.accent}22`,padding:'2px 6px',borderRadius:4}}>✅ COMPLETED · {m.format}</span>
                     <span style={{fontSize:10,color:css.sub}}>{new Date(m.created).toLocaleDateString()}</span>
                   </div>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
@@ -401,10 +422,10 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                     </div>
                   </div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
-                    {(m.innings[0]?.ballLog||[]).slice(0,12).map((b,i)=><BallDot key={i} b={b} size={18}/>)}
+                    {(m.innings[0]?.ballLog||[]).slice(0,12).map((b,i)=><BallDot key={i} b={b} size={18} isDark={isDark}/>)}
                     {(m.innings[0]?.ballLog||[]).length>12&&<span style={{fontSize:9,color:css.sub,alignSelf:'center'}}>+{(m.innings[0].ballLog.length-12)} more</span>}
                   </div>
-                  <div style={{fontSize:10,color:C.yellow,fontWeight:700,textAlign:'right'}}>View 100 balls →</div>
+                  <div style={{fontSize:10,color:css.accent,fontWeight:700,textAlign:'right'}}>View 100 balls →</div>
                 </div>
               ))}
             </GSection>
@@ -417,7 +438,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                   <div style={{width:22,fontSize:13,fontWeight:800,color:css.sub,textAlign:'center'}}>{i+1}</div>
                   <PAv name={p.name} photo={p.photo} size={36}/>
                   <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{p.name}</div><div style={{fontSize:11,color:css.sub}}>{p.team}</div></div>
-                  <div style={{textAlign:'right'}}><div style={{fontSize:20,fontWeight:900,color:C.yellow}}>{p.runs}</div><div style={{fontSize:9,color:css.sub}}>RUNS</div></div>
+                  <div style={{textAlign:'right'}}><div style={{fontSize:20,fontWeight:900,color:css.accent}}>{p.runs}</div><div style={{fontSize:9,color:css.sub}}>RUNS</div></div>
                 </div>
               ))}
             </GSection>
@@ -444,7 +465,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                 </button>
               ):(
                 <div style={{background:css.card,borderRadius:12,padding:14,border:`1px solid ${C.yellow}44`}}>
-                  <div style={{fontWeight:800,fontSize:13,color:C.yellow,marginBottom:10}}>Add New Team</div>
+                  <div style={{fontWeight:800,fontSize:13,color:css.accent,marginBottom:10}}>Add New Team</div>
                   <div style={{display:'flex',gap:8,marginBottom:8}}>
                     <input value={newTeamName} onChange={e=>setNewTeamName(e.target.value)} placeholder="Team name" style={{flex:1,background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'9px 12px',fontSize:13,color:css.text,outline:'none'}}/>
                     <button onClick={()=>addTeamToTournament(t.id,newTeamName)} style={{background:C.yellow,border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,color:C.black,cursor:'pointer'}}>Add</button>
@@ -507,7 +528,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
       {showNew&&(
         <div style={{background:css.card,borderRadius:16,padding:16,border:`1px solid ${C.yellow}44`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-            <span style={{fontWeight:800,fontSize:14,color:C.yellow}}>Create Tournament</span>
+            <span style={{fontWeight:800,fontSize:14,color:css.accent}}>Create Tournament</span>
             <button onClick={()=>setShowNew(false)} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={16}/></button>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -532,7 +553,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                   {dbTeams.map(team=>{
                     const active=selectedTeams.includes(team)
                     return(
-                      <button key={team} onClick={()=>setSelectedTeams(prev=>active?prev.filter(x=>x!==team):[...prev,team])} style={{background:active?`${C.yellow}22`:css.bg,color:active?C.yellow:css.text,border:`1px solid ${active?C.yellow:css.border}`,borderRadius:8,padding:'8px 10px',fontSize:11,fontWeight:700,cursor:'pointer',textAlign:'left',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{active?'✓ ':''}{team}</button>
+                      <button key={team} onClick={()=>setSelectedTeams(prev=>active?prev.filter(x=>x!==team):[...prev,team])} style={{background:active?`${css.accent}22`:css.bg,color:active?css.accent:css.text,border:`1px solid ${active?css.accent:css.border}`,borderRadius:8,padding:'8px 10px',fontSize:11,fontWeight:700,cursor:'pointer',textAlign:'left',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{active?'✓ ':''}{team}</button>
                     )
                   })}
                 </div>
@@ -573,7 +594,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
             {t.teams.slice(0,4).map(team=><span key={team} style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:`${t.color}22`,color:t.color,fontWeight:600}}>{team}</span>)}
             {t.teams.length>4&&<span style={{fontSize:10,color:css.sub,padding:'2px 8px'}}>+{t.teams.length-4} more</span>}
           </div>
-          {t.winner&&<div style={{marginTop:10,background:`${C.yellow}22`,borderRadius:8,padding:'6px 10px',display:'flex',alignItems:'center',gap:6}}><span>🏆</span><span style={{fontSize:11,fontWeight:700,color:C.yellow}}>{t.winner} won</span></div>}
+          {t.winner&&<div style={{marginTop:10,background:`${css.accent}22`,borderRadius:8,padding:'6px 10px',display:'flex',alignItems:'center',gap:6}}><span>🏆</span><span style={{fontSize:11,fontWeight:700,color:css.accent}}>{t.winner} won</span></div>}
           <div style={{marginTop:10,display:'flex',justifyContent:'flex-end',fontSize:11,color:css.sub,alignItems:'center',gap:4}}>View<ChevronRight size={12}/></div>
         </div>
       ))}

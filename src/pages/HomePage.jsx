@@ -43,7 +43,7 @@ export default function HomePage({css,isDark,matches,setTab,setShowNewMatch,setA
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           {/* Stats */}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-            {[{label:'Matches',value:matches.length,icon:'🏏',color:C.yellow},{label:'Players',value:allPlayers.length,icon:'👥',color:C.info},{label:'Live',value:live.length,icon:'🔴',color:C.danger}].map(s=>(
+            {[{label:'Matches',value:matches.length,icon:'🏏',color:css.accent},{label:'Players',value:allPlayers.length,icon:'👥',color:C.info},{label:'Live',value:live.length,icon:'🔴',color:C.danger}].map(s=>(
               <div key={s.label} style={{background:css.card,borderRadius:14,padding:'16px 8px',border:`1px solid ${css.border}`,textAlign:'center'}}>
                 <div style={{fontSize:22,marginBottom:4}}>{s.icon}</div>
                 <div style={{fontSize:24,fontWeight:900,color:s.color}}>{s.value}</div>
@@ -57,7 +57,7 @@ export default function HomePage({css,isDark,matches,setTab,setShowNewMatch,setA
                 <div style={{width:28,height:28,borderRadius:8,fontWeight:900,fontSize:13,background:i===0?`linear-gradient(135deg,${C.yellow},${C.yellowDark})`:i===1?'linear-gradient(135deg,#C0C0C0,#A0A0A0)':'linear-gradient(135deg,#CD7F32,#A05A20)',display:'flex',alignItems:'center',justifyContent:'center',color:C.black,flexShrink:0}}>{i+1}</div>
                 <PAv name={p.name} photo={p.photo} size={34}/>
                 <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,color:css.sub}}>{p.team}·{p.matches}m</div></div>
-                <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:18,fontWeight:900,color:C.yellow}}>{p.runs}</div><div style={{fontSize:9,color:css.sub}}>RUNS</div></div>
+                <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:18,fontWeight:900,color:css.accent}}>{p.runs}</div><div style={{fontSize:9,color:css.sub}}>RUNS</div></div>
               </div>
             ))}
           </GSection>
