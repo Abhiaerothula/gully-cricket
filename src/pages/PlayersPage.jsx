@@ -1,5 +1,5 @@
 import{useEffect,useState}from'react'
-import{Plus,X,UserPlus,Trash2,Edit3,Database,CheckCircle,Lock,Unlock,Shield,Inbox,Check,XCircle}from'lucide-react'
+import{Plus,X,UserPlus,Trash2,Edit3,Database,CheckCircle,Lock,Unlock,Shield,Inbox,Check,XCircle,Upload}from'lucide-react'
 import{BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}from'recharts'
 import{C,ROLES,COLORS_BAR}from'../data/constants.js'
 import{GSection,PAv,GIn}from'../components/Shared.jsx'
@@ -25,6 +25,9 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,captainsDB,se
   const[showTransfer,setShowTransfer]=useState(false)
   const[transferTo,setTransferTo]=useState('')
   const[showInbox,setShowInbox]=useState(false)
+  const[showCsvImport,setShowCsvImport]=useState(false)
+  const[csvPreview,setCsvPreview]=useState([])
+  const[csvError,setCsvError]=useState('')
   const isAdmin=currentUser?.role==='admin'
   const isCaptainOf=team=>!!(currentUser?.email&&captainsDB[team]&&currentUser.email.toLowerCase()===captainsDB[team].toLowerCase())
   const isCaptain=isCaptainOf(selTeam)
@@ -83,6 +86,55 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,captainsDB,se
     setNewTName('')
     setShowAddT(false)
   }
+  const parseCSV=(text)=>{
+    const lines=text.split(/\r?\n/).filter(l=>l.trim())
+    if(lines.length<2){setCsvError('CSV must have a header row and at least one data row.');return[]}
+    const headers=lines[0].split(',').map(h=>h.trim().toLowerCase())
+    const nameIdx=headers.findIndex(h=>h==='name'||h==='player name'||h==='playername')
+    const emailIdx=headers.findIndex(h=>h==='email'||h==='player email'||h==='playeremail')
+    const roleIdx=headers.findIndex(h=>h==='role'||h==='player role'||h==='playerrole')
+    if(nameIdx===-1){setCsvError('CSV must have a "Name" column.');return[]}
+    const players=[]
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].split(',').map(c=>c.trim())
+      const name=cols[nameIdx]||''
+      if(!name)continue
+      const email=emailIdx!==-1?(cols[emailIdx]||'').toLowerCase():''
+      const rawRole=roleIdx!==-1?(cols[roleIdx]||''):'Batsman'
+      const role=ROLES.find(r=>r.toLowerCase()===rawRole.toLowerCase())||'Batsman'
+      players.push({name,email,role})
+    }
+    return players
+  }
+  const handleCsvFile=(file)=>{
+    setCsvError('')
+    const reader=new FileReader()
+    reader.onload=(e)=>{
+      const text=e.target.result
+      const players=parseCSV(text)
+      setCsvPreview(players)
+    }
+    reader.onerror=()=>setCsvError('Failed to read file.')
+    reader.readAsText(file)
+  }
+  const confirmCsvImport=()=>{
+    if(!csvPreview.length)return
+    const existing=(teamsDB[selTeam]||[]).map(p=>p.name.trim().toLowerCase())
+    const allOtherPlayers=Object.entries(teamsDB).filter(([t])=>t!==selTeam).flatMap(([,pls])=>pls)
+    const duplicatesOther=[]
+    const newPlayers=[]
+    for(const p of csvPreview){
+      if(existing.includes(p.name.trim().toLowerCase()))continue
+      const inOther=allOtherPlayers.find(x=>x.name?.trim().toLowerCase()===p.name.trim().toLowerCase())
+      if(inOther){duplicatesOther.push(`${p.name} (in ${inOther.team})`);continue}
+      newPlayers.push({id:Date.now()+Math.random()*100000,name:p.name,email:p.email,photo:'',team:selTeam,role:p.role,runs:0,wickets:0,catches:0,matches:0,balls:0,fours:0,sixes:0,innings:0})
+    }
+    if(duplicatesOther.length)window.alert(`Skipped (already in other teams):\n${duplicatesOther.join('\n')}`)
+    if(!newPlayers.length){window.alert('No new players to import.');return}
+    setTeamsDB(prev=>({...prev,[selTeam]:[...(prev[selTeam]||[]),...newPlayers]}))
+    window.alert(`Successfully imported ${newPlayers.length} player(s) to ${selTeam}.`)
+    setShowCsvImport(false);setCsvPreview([]);setCsvError('')
+  }
   const delTeam=()=>{
     if(!isAdmin){
       window.alert('Only Admin can delete teams.')
@@ -120,9 +172,43 @@ export default function PlayersPage({css,isDark,teamsDB,setTeamsDB,captainsDB,se
       {selTeam&&(
         <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8}}>
           {canManageTeam&&<button onClick={()=>{setEditP(null);resetForm();setShowAdd(true)}} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 12px ${C.yellow}33`}}><UserPlus size={15}/>Add Player to {selTeam}</button>}
+          {isAdmin&&<button onClick={()=>{setShowCsvImport(true);setCsvPreview([]);setCsvError('')}} style={{background:`${C.success}22`,border:`1px solid ${C.success}44`,borderRadius:10,padding:'0 12px',fontSize:12,fontWeight:700,color:C.success,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Upload size={14}/>Import CSV</button>}
           {isAdmin&&<button onClick={delTeam} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:10,padding:'0 12px',fontSize:12,fontWeight:700,color:C.danger,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Trash2 size={14}/>Delete Team</button>}
         </div>
       )}
+      {showCsvImport&&isAdmin&&(<div style={{background:css.card,borderRadius:16,padding:16,border:`1px solid ${C.success}44`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <span style={{fontWeight:800,fontSize:14,color:C.success}}>📄 Import Players from CSV</span>
+          <button onClick={()=>{setShowCsvImport(false);setCsvPreview([]);setCsvError('')}} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={16}/></button>
+        </div>
+        <div style={{fontSize:11,color:css.sub,marginBottom:10,lineHeight:1.5}}>CSV format: <b>Name</b> (required), <b>Email</b> (optional), <b>Role</b> (optional: Batsman/Bowler/All-Rounder/WK-Batsman).<br/>All stats will start at 0. <a href="/example-players.csv" download="example-players.csv" style={{color:C.info,fontWeight:700,textDecoration:'underline',cursor:'pointer'}}>📥 Download Sample CSV</a></div>
+        <input type="file" accept=".csv,.txt" onChange={e=>{const f=e.target.files?.[0];if(f)handleCsvFile(f);e.target.value=''}} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px',fontSize:12,color:css.text,boxSizing:'border-box',marginBottom:10}}/>
+        {csvError&&<div style={{color:C.danger,fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ {csvError}</div>}
+        {csvPreview.length>0&&(
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:css.accent,marginBottom:6}}>Preview ({csvPreview.length} player{csvPreview.length!==1?'s':''}):</div>
+            <div style={{maxHeight:200,overflowY:'auto',border:`1px solid ${css.border}`,borderRadius:8,marginBottom:10}}>
+              <table style={{width:'100%',fontSize:11,borderCollapse:'collapse'}}>
+                <thead><tr style={{background:css.bg}}>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:css.sub,borderBottom:`1px solid ${css.border}`}}>#</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:css.sub,borderBottom:`1px solid ${css.border}`}}>Name</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:css.sub,borderBottom:`1px solid ${css.border}`}}>Email</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:css.sub,borderBottom:`1px solid ${css.border}`}}>Role</th>
+                </tr></thead>
+                <tbody>{csvPreview.map((p,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${css.border}22`}}>
+                    <td style={{padding:'5px 8px',color:css.sub}}>{i+1}</td>
+                    <td style={{padding:'5px 8px',color:css.text,fontWeight:600}}>{p.name}</td>
+                    <td style={{padding:'5px 8px',color:css.sub}}>{p.email||'—'}</td>
+                    <td style={{padding:'5px 8px',color:roleColor(p.role),fontWeight:600}}>{p.role}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <button onClick={confirmCsvImport} style={{width:'100%',background:`linear-gradient(135deg,${C.success},${C.success}dd)`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:'#fff',cursor:'pointer',boxShadow:`0 4px 12px ${C.success}44`}}>✅ Import {csvPreview.length} Player{csvPreview.length!==1?'s':''} to {selTeam}</button>
+          </div>
+        )}
+      </div>)}
       {showAdd&&(<div style={{background:css.card,borderRadius:16,padding:16,border:`1px solid ${C.yellow}44`}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
           <span style={{fontWeight:800,fontSize:14,color:css.accent}}>{editP?'Edit Player':'Add Player'}</span>
