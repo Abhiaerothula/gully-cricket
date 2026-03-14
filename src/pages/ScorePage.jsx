@@ -723,7 +723,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   // Pre-fill from pending scheduled match
   useEffect(()=>{
     if(pendingMatch&&showNewMatch){
-      setNewForm(f=>({...f,team1:pendingMatch.team1||'',team2:pendingMatch.team2||'',format:pendingMatch.format||'T20',tournamentId:pendingMatch.tournamentId?String(pendingMatch.tournamentId):'',team1Players:[],team2Players:[],toss:'',bat:'',striker:'',nonStriker:'',firstBowler:''}))
+      setNewForm(f=>({...f,team1:pendingMatch.team1||'',team2:pendingMatch.team2||'',format:pendingMatch.format||'T20',customOvers:pendingMatch.customOvers?String(pendingMatch.customOvers):'10',tournamentId:pendingMatch.tournamentId?String(pendingMatch.tournamentId):'',team1Players:[],team2Players:[],toss:'',bat:'',striker:'',nonStriker:'',firstBowler:''}))
       setPendingMatch(null)
     }
   },[pendingMatch,showNewMatch,setPendingMatch])
