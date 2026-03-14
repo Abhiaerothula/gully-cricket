@@ -514,7 +514,7 @@ function BallsViewScore({innings,css,isDark}){
   )
 }
 
-function MatchAnalysisView({match,onBack,css,isDark,setMatches}){
+function MatchAnalysisView({match,onBack,css,isDark,setMatches,currentUser}){
   const[innIdx,setInnIdx]=useState(0)
   const[tab,setTab]=useState('scorecard')
   const[showPotm,setShowPotm]=useState(false)
@@ -547,7 +547,7 @@ function MatchAnalysisView({match,onBack,css,isDark,setMatches}){
         </div>
         {winner&&<div style={{marginTop:10,background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'8px 12px',textAlign:'center',fontSize:12,fontWeight:700,color:C.yellow}}>🏆 {winner}</div>}
         {match.potm&&<div style={{marginTop:6,background:`${C.success}22`,border:`1px solid ${C.success}44`,borderRadius:8,padding:'6px 12px',textAlign:'center',fontSize:11,fontWeight:700,color:C.success}}>🏅 Player of the Match: {match.potm}</div>}
-        {match.status==='completed'&&!match.potm&&setMatches&&(
+        {match.status==='completed'&&!match.potm&&setMatches&&currentUser?.role==='admin'&&(
           <button onClick={()=>setShowPotm(true)} style={{marginTop:6,background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:8,padding:'8px 12px',fontSize:11,fontWeight:700,color:C.info,cursor:'pointer',width:'100%'}}>🏅 Select Player of the Match</button>
         )}
       </div>
@@ -750,6 +750,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   },[matches,currentUser?.email,setMatches,setTournaments])
 
   const startMatch=()=>{
+    if(!currentUser?.email){window.alert('Please login to create a match.');return}
     if(!newForm.team1||!newForm.team2||!hasMinPlayers){
       window.alert(`Select at least ${MIN_PLAYERS_PER_TEAM} players for both teams before starting the match.`)
       return
@@ -786,7 +787,7 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   }
   if(viewMatch){
     const m=matches.find(x=>x.id===viewMatch.id)||viewMatch
-    return<MatchAnalysisView match={m} onBack={()=>setViewMatch(null)} css={css} isDark={isDark} setMatches={setMatches}/>
+    return<MatchAnalysisView match={m} onBack={()=>setViewMatch(null)} css={css} isDark={isDark} setMatches={setMatches} currentUser={currentUser}/>
   }
   return(
     <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:14}}>

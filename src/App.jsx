@@ -54,6 +54,7 @@ export default function App(){
     purple:[...allPlayers].sort((a,b)=>b.wickets-a.wickets).slice(0,8),
   }
   const postNotice=()=>{
+    if(!currentUser?.email){window.alert('Please login to post notices.');return}
     if(!noticeInput.trim())return
     setNotices(p=>[{id:Date.now(),author:'You',role:'Organizer',msg:noticeInput,time:'Just now',urgent:false},...p])
     setNoticeInput('')
