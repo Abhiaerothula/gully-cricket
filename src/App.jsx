@@ -36,7 +36,7 @@ export default function App(){
   const css=THEMES[theme]
   const isDark=theme==='dark'
   const allPlayers=Object.values(teamsDB).flat()
-  const adminEmails=['abhi.aero.thula@gmail.com',(import.meta.env.VITE_ADMIN_EMAIL||'').toLowerCase()].filter(Boolean)
+  const adminEmails=[...new Set(['abhi.aero.thula@gmail.com',...(import.meta.env.VITE_ADMIN_EMAIL||'').split(',').map(e=>e.trim().toLowerCase())].filter(Boolean))]
   const isAdminEmail=e=>adminEmails.includes(e.toLowerCase())
   const activeUser=firebaseEnabled?authUser:localAuthUser
   const userEmail=activeUser?.email||''
@@ -99,7 +99,7 @@ export default function App(){
     setTeamsDB(prev=>({...prev,[team]:[...(prev[team]||[]),newPlayer]}))
   },[userEmail,currentUser.role])
 
-  const ADMIN_PASSWORD='ADMIN@12345'
+  const ADMIN_PASSWORD=import.meta.env.VITE_ADMIN_PASSWORD||'ADMIN@12345'
   const submitAuth=async()=>{
     const email=authForm.email.trim().toLowerCase()
     const password=authForm.password
