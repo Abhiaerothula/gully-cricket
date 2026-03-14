@@ -1,5 +1,5 @@
 import{useState}from'react'
-import{Plus,X,ChevronRight,UserPlus,Trash2}from'lucide-react'
+import{Plus,X,ChevronRight,UserPlus,Trash2,Calendar,Play,UserCheck,MapPin}from'lucide-react'
 import{BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}from'recharts'
 import{C,FORMATS,COLORS_BAR}from'../data/constants.js'
 import{GSection,PAv,GIn,MatchCard}from'../components/Shared.jsx'
@@ -76,7 +76,7 @@ function BallsView({innings,css,isDark}){
   )
 }
 
-export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsDB,currentUser,authSession}){
+export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsDB,currentUser,authSession,matches,setTab,setShowNewMatch,setPendingMatch}){
   const[view,setView]=useState('list')
   const[selT,setSelT]=useState(null)
   const[innerT,setInnerT]=useState('table')
@@ -92,6 +92,9 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
   const[editGroups,setEditGroups]=useState(false)
   const[groupDraft,setGroupDraft]=useState(null)
   const[accessName,setAccessName]=useState('')
+  // Schedule match states
+  const[showScheduleForm,setShowScheduleForm]=useState(false)
+  const[schedForm,setSchedForm]=useState({team1:'',team2:'',date:'',time:'',scorer:'',location:''})
 
   const isAdmin=currentUser?.role==='admin'
   const canManageTournament=t=>isAdmin||(t?.accessUsers||[]).includes(currentUser?.email)
@@ -244,6 +247,42 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,accessUsers:(t.accessUsers||[]).filter(x=>x!==name)}))
   }
 
+  const scheduleMatch=(tid)=>{
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){window.alert('You do not have access to schedule matches.');return}
+    if(!verifyEditorPassword())return
+    if(!schedForm.team1||!schedForm.team2){window.alert('Select both teams.');return}
+    if(schedForm.team1===schedForm.team2){window.alert('Teams must be different.');return}
+    if(!schedForm.scorer){window.alert('Please assign a scorer for this match.');return}
+    const sm={id:Date.now(),team1:schedForm.team1,team2:schedForm.team2,date:schedForm.date||'TBD',time:schedForm.time||'TBD',scorer:schedForm.scorer,location:schedForm.location||'',status:'scheduled',matchId:null}
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,scheduledMatches:[...(t.scheduledMatches||[]),sm]}))
+    setSchedForm({team1:'',team2:'',date:'',time:'',scorer:'',location:''});setShowScheduleForm(false)
+  }
+
+  const deleteScheduledMatch=(tid,smId)=>{
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){window.alert('No access.');return}
+    if(!verifyEditorPassword())return
+    if(!window.confirm('Delete this scheduled match?'))return
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,scheduledMatches:(t.scheduledMatches||[]).filter(s=>s.id!==smId)}))
+  }
+
+  const handleStartScheduledMatch=(tid,sm)=>{
+    if(!currentUser?.email){window.alert('Please login first.');return}
+    if(!isAdmin&&sm.scorer!==currentUser?.email){window.alert('Only the assigned scorer or admin can start this match.');return}
+    if(!verifyEditorPassword())return
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,scheduledMatches:(t.scheduledMatches||[]).map(s=>s.id!==sm.id?s:{...s,status:'live'})}))
+    setPendingMatch({team1:sm.team1,team2:sm.team2,tournamentId:tid,format:tournaments.find(x=>x.id===tid)?.format||'T20'})
+    setShowNewMatch(true);setTab('score')
+  }
+
+  const updateScheduledScorer=(tid,smId,newScorer)=>{
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){window.alert('No access.');return}
+    if(!verifyEditorPassword())return
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,scheduledMatches:(t.scheduledMatches||[]).map(s=>s.id!==smId?s:{...s,scorer:newScorer})}))
+  }
+
   if(selMatch){
     const t=tournaments.find(x=>x.id===selT)
     const m=selMatch
@@ -282,7 +321,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     const tp=t.teams.flatMap(tn=>teamsDB[tn]||[])
     const orange=[...tp].sort((a,b)=>b.runs-a.runs).slice(0,5)
     const purple=[...tp].sort((a,b)=>b.wickets-a.wickets).slice(0,5)
-    const iTabs=[{id:'table',label:'🏟️ Table'},{id:'fixtures',label:'📋 Fixtures'},{id:'matches',label:'🏏 Matches'},{id:'batting',label:'🟠 Batting'},{id:'bowling',label:'🟣 Bowling'},{id:'teams',label:'👥 Teams'},{id:'chart',label:'📊 Chart'}]
+    const iTabs=[{id:'table',label:'🏟️ Table'},{id:'fixtures',label:'📋 Fixtures'},{id:'schedule',label:'📅 Schedule'},{id:'matches',label:'🏏 Matches'},{id:'batting',label:'🟠 Batting'},{id:'bowling',label:'🟣 Bowling'},{id:'teams',label:'👥 Teams'},{id:'chart',label:'📊 Chart'}]
     return(
       <div style={{paddingBottom:12}}>
         <div style={{background:`linear-gradient(135deg,${C.black},${C.darkGray})`,padding:'14px',borderBottom:`2px solid ${t.color}`}}>
@@ -400,6 +439,136 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                 })
               )}
             </GSection>
+          )}
+          {innerT==='schedule'&&(
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {canEditT&&!showScheduleForm&&(
+                <button onClick={()=>setShowScheduleForm(true)} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 12px ${C.yellow}33`}}>
+                  <Calendar size={15}/> Schedule New Match
+                </button>
+              )}
+              {canEditT&&showScheduleForm&&(
+                <div style={{background:css.card,borderRadius:14,padding:16,border:`1px solid ${C.yellow}44`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                    <span style={{fontWeight:800,fontSize:14,color:css.accent}}>📅 Schedule Match</span>
+                    <button onClick={()=>{setShowScheduleForm(false);setSchedForm({team1:'',team2:'',date:'',time:'',scorer:'',location:''})}} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={16}/></button>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    <div>
+                      <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Team 1</label>
+                      <select value={schedForm.team1} onChange={e=>setSchedForm(f=>({...f,team1:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',cursor:'pointer'}}>
+                        <option value="">Select Team 1</option>
+                        {t.teams.map(team=><option key={team} value={team}>{team}{t.hasGroups&&t.groups?' ('+((t.groups||[]).find(g=>g.teams.includes(team))||{}).name+')':''}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Team 2</label>
+                      <select value={schedForm.team2} onChange={e=>setSchedForm(f=>({...f,team2:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',cursor:'pointer'}}>
+                        <option value="">Select Team 2</option>
+                        {t.teams.filter(team=>team!==schedForm.team1).map(team=><option key={team} value={team}>{team}{t.hasGroups&&t.groups?' ('+((t.groups||[]).find(g=>g.teams.includes(team))||{}).name+')':''}</option>)}
+                      </select>
+                    </div>
+                    {schedForm.team1&&schedForm.team2&&t.hasGroups&&t.groups&&(()=>{
+                      const g1=(t.groups||[]).find(g=>g.teams.includes(schedForm.team1))
+                      const g2=(t.groups||[]).find(g=>g.teams.includes(schedForm.team2))
+                      const sameGroup=g1&&g2&&g1.name===g2.name
+                      return(
+                        <div style={{background:sameGroup?`${C.info}11`:`${C.warn}11`,border:`1px solid ${sameGroup?C.info:C.warn}33`,borderRadius:8,padding:'8px 12px',fontSize:11,color:sameGroup?C.info:C.warn,fontWeight:600}}>
+                          {sameGroup?`🏟️ Group Stage: Both teams in ${g1.name}`:`⚔️ Cross-Group: ${g1?.name||'?'} vs ${g2?.name||'?'}`}
+                        </div>
+                      )
+                    })()}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                      <div>
+                        <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Date</label>
+                        <input type="date" value={schedForm.date} onChange={e=>setSchedForm(f=>({...f,date:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:12,color:css.text,boxSizing:'border-box',outline:'none'}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Time</label>
+                        <input type="time" value={schedForm.time} onChange={e=>setSchedForm(f=>({...f,time:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:12,color:css.text,boxSizing:'border-box',outline:'none'}}/>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>📍 Location (optional)</label>
+                      <input value={schedForm.location} onChange={e=>setSchedForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Central Park Ground" style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',outline:'none'}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>🎯 Assign Scorer</label>
+                      <select value={schedForm.scorer} onChange={e=>setSchedForm(f=>({...f,scorer:e.target.value}))} style={{width:'100%',background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'10px 12px',fontSize:13,color:css.text,boxSizing:'border-box',cursor:'pointer'}}>
+                        <option value="">Select Scorer</option>
+                        {allUserNames.map(email=><option key={email} value={email}>{email}</option>)}
+                      </select>
+                      <div style={{fontSize:10,color:css.sub,marginTop:4}}>Only the assigned scorer (or admin) can start this match.</div>
+                    </div>
+                    <button onClick={()=>scheduleMatch(t.id)} disabled={!schedForm.team1||!schedForm.team2||!schedForm.scorer} style={{background:(!schedForm.team1||!schedForm.team2||!schedForm.scorer)?css.border:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:(!schedForm.team1||!schedForm.team2||!schedForm.scorer)?css.sub:C.black,cursor:(!schedForm.team1||!schedForm.team2||!schedForm.scorer)?'not-allowed':'pointer'}}>📅 Schedule Match</button>
+                  </div>
+                </div>
+              )}
+              {!canEditT&&<div style={{fontSize:11,color:css.sub,background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px'}}>Only tournament admin can schedule matches.</div>}
+              <GSection title={`📅 SCHEDULED MATCHES (${(t.scheduledMatches||[]).length})`} css={css}>
+                {(!t.scheduledMatches||t.scheduledMatches.length===0)&&<div style={{textAlign:'center',padding:24,color:css.sub,fontSize:13}}>No matches scheduled yet.</div>}
+                {(t.scheduledMatches||[]).map(sm=>{
+                  const isLive=sm.status==='live'
+                  const isCompleted=sm.status==='completed'
+                  const canStart=isAdmin||sm.scorer===currentUser?.email
+                  const liveMatch=(matches||[]).find(m=>m.tournamentId===t.id&&m.status==='live'&&((m.team1===sm.team1&&m.team2===sm.team2)||(m.team1===sm.team2&&m.team2===sm.team1)))
+                  const completedMatch=(t.recentMatches||[]).find(m=>(m.team1===sm.team1&&m.team2===sm.team2)||(m.team1===sm.team2&&m.team2===sm.team1))
+                  const actualStatus=completedMatch?'completed':liveMatch?'live':sm.status
+                  const statusCol=actualStatus==='scheduled'?C.info:actualStatus==='live'?C.yellow:C.success
+                  const statusLbl=actualStatus==='scheduled'?'⏳ Scheduled':actualStatus==='live'?'● LIVE':'✅ Completed'
+                  return(
+                    <div key={sm.id} style={{background:isDark?C.midGray:C.white,borderRadius:12,padding:14,marginBottom:8,border:`1px solid ${actualStatus==='live'?`${C.yellow}66`:css.border}`,boxShadow:actualStatus==='live'?`0 0 8px ${C.yellow}22`:'none'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                        <span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:statusCol,background:`${statusCol}22`,padding:'2px 8px',borderRadius:4}}>{statusLbl}</span>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <span style={{fontSize:10,color:css.sub}}>{sm.date!=='TBD'?new Date(sm.date+'T00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}):''} {sm.time!=='TBD'?sm.time:''}</span>
+                          {sm.location&&<span style={{fontSize:10,color:css.sub,display:'flex',alignItems:'center',gap:2}}><MapPin size={9}/>{sm.location}</span>}
+                          {canEditT&&actualStatus==='scheduled'&&<button onClick={()=>deleteScheduledMatch(t.id,sm.id)} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'3px 6px',cursor:'pointer',color:C.danger,display:'flex',alignItems:'center'}}><Trash2 size={11}/></button>}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                        <div style={{fontSize:14,fontWeight:700}}>{sm.team1}</div>
+                        <div style={{fontSize:11,color:css.sub,fontWeight:700}}>vs</div>
+                        <div style={{fontSize:14,fontWeight:700,textAlign:'right'}}>{sm.team2}</div>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,background:`${css.bg}`,borderRadius:8,padding:'6px 10px',border:`1px solid ${css.border}`}}>
+                        <UserCheck size={12} style={{color:css.accent,flexShrink:0}}/>
+                        <span style={{fontSize:11,color:css.sub}}>Scorer:</span>
+                        {canEditT&&actualStatus==='scheduled'?(
+                          <select value={sm.scorer} onChange={e=>updateScheduledScorer(t.id,sm.id,e.target.value)} style={{flex:1,background:'transparent',border:'none',fontSize:11,fontWeight:700,color:css.accent,cursor:'pointer',outline:'none'}}>
+                            <option value="">Select</option>
+                            {allUserNames.map(email=><option key={email} value={email}>{email}</option>)}
+                          </select>
+                        ):(
+                          <span style={{fontSize:11,fontWeight:700,color:css.accent}}>{sm.scorer||'Not assigned'}</span>
+                        )}
+                      </div>
+                      {actualStatus==='scheduled'&&canStart&&(
+                        <button onClick={()=>handleStartScheduledMatch(t.id,sm)} style={{width:'100%',background:`linear-gradient(135deg,${C.success},#27ae60)`,border:'none',borderRadius:10,padding:'10px 14px',fontSize:13,fontWeight:800,color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 12px ${C.success}44`}}>
+                          <Play size={14}/> Start Match
+                        </button>
+                      )}
+                      {actualStatus==='scheduled'&&!canStart&&(
+                        <div style={{fontSize:11,color:css.sub,textAlign:'center',padding:'8px 0',fontStyle:'italic'}}>Only {sm.scorer||'assigned scorer'} or admin can start this match</div>
+                      )}
+                      {actualStatus==='live'&&(
+                        <div style={{background:`${C.yellow}11`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'8px 12px',textAlign:'center'}}>
+                          <span style={{fontSize:12,fontWeight:700,color:C.yellow}}>● Match is LIVE</span>
+                        </div>
+                      )}
+                      {actualStatus==='completed'&&completedMatch&&(
+                        <div style={{background:`${C.success}11`,border:`1px solid ${C.success}44`,borderRadius:8,padding:'8px 10px'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:11}}>
+                            <span style={{color:css.text,fontWeight:600}}>{completedMatch.innings[0]?.batting}: {completedMatch.innings[0]?.score}/{completedMatch.innings[0]?.wickets}</span>
+                            <span style={{color:css.text,fontWeight:600}}>{completedMatch.innings[1]?.batting}: {completedMatch.innings[1]?.score}/{completedMatch.innings[1]?.wickets}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </GSection>
+            </div>
           )}
           {innerT==='matches'&&(
             <GSection title="🏏 RECENT MATCHES" css={css}>

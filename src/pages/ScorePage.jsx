@@ -712,7 +712,7 @@ function applyMatchResultToTournament(tournament,match){
   }
 }
 
-export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB,tournaments,setTournaments,currentUser,authSession}){
+export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB,tournaments,setTournaments,currentUser,authSession,pendingMatch,setPendingMatch}){
   const MIN_PLAYERS_PER_TEAM=8
   const isAdmin=currentUser?.role==='admin'
   const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',tournamentId:'',toss:'',bat:'',customOvers:'10',team1Players:[],team2Players:[],striker:'',nonStriker:'',firstBowler:''})
@@ -720,6 +720,13 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
   const[matchSearch,setMatchSearch]=useState('')
   const[filterFormat,setFilterFormat]=useState('')
   useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch,setActiveScoring])
+  // Pre-fill from pending scheduled match
+  useEffect(()=>{
+    if(pendingMatch&&showNewMatch){
+      setNewForm(f=>({...f,team1:pendingMatch.team1||'',team2:pendingMatch.team2||'',format:pendingMatch.format||'T20',tournamentId:pendingMatch.tournamentId?String(pendingMatch.tournamentId):'',team1Players:[],team2Players:[],toss:'',bat:'',striker:'',nonStriker:'',firstBowler:''}))
+      setPendingMatch(null)
+    }
+  },[pendingMatch,showNewMatch,setPendingMatch])
   const allTeams=Object.keys(teamsDB)
   const tossTeam=(newForm.toss===newForm.team1||newForm.toss===newForm.team2)?newForm.toss:''
   const bowlingFirstTeam=tossTeam?(newForm.bat==='Bat'?(tossTeam===newForm.team1?newForm.team2:newForm.team1):tossTeam):''

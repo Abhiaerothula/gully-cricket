@@ -31,6 +31,7 @@ export default function App(){
   const[notices,setNotices]=useStorage('notices',MOCK_NOTICES)
   const[showNewMatch,setShowNewMatch]=useState(false)
   const[activeScoring,setActiveScoring]=useState(null)
+  const[pendingMatch,setPendingMatch]=useState(null)
   const[noticeInput,setNoticeInput]=useState('')
   const[menuOpen,setMenuOpen]=useState(false)
   const css=THEMES[theme]
@@ -186,8 +187,8 @@ export default function App(){
       {/* PAGES */}
       <main className="main-content" style={{maxWidth:1280,margin:'0 auto',padding:'0 32px'}}>
         {tab==='home'&&<HomePage css={css} isDark={isDark} matches={matches} setTab={setTab} setShowNewMatch={setShowNewMatch} setActiveScoring={setActiveScoring} notices={notices} leaderboards={leaderboards} allPlayers={allPlayers}/>} 
-        {tab==='score'&&<ScorePage css={css} isDark={isDark} matches={matches} setMatches={setMatches} showNewMatch={showNewMatch} setShowNewMatch={setShowNewMatch} activeScoring={activeScoring} setActiveScoring={setActiveScoring} teamsDB={teamsDB} tournaments={tournaments} setTournaments={setTournaments} currentUser={currentUser} authSession={authSession}/>}
-        {tab==='league'&&<LeaguePage css={css} isDark={isDark} tournaments={tournaments} setTournaments={setTournaments} teamsDB={teamsDB} currentUser={currentUser} authSession={authSession}/>} 
+        {tab==='score'&&<ScorePage css={css} isDark={isDark} matches={matches} setMatches={setMatches} showNewMatch={showNewMatch} setShowNewMatch={setShowNewMatch} activeScoring={activeScoring} setActiveScoring={setActiveScoring} teamsDB={teamsDB} tournaments={tournaments} setTournaments={setTournaments} currentUser={currentUser} authSession={authSession} pendingMatch={pendingMatch} setPendingMatch={setPendingMatch}/>}
+        {tab==='league'&&<LeaguePage css={css} isDark={isDark} tournaments={tournaments} setTournaments={setTournaments} teamsDB={teamsDB} currentUser={currentUser} authSession={authSession} matches={matches} setTab={setTab} setShowNewMatch={setShowNewMatch} setPendingMatch={setPendingMatch}/>} 
         {tab==='players'&&<PlayersPage css={css} isDark={isDark} teamsDB={teamsDB} setTeamsDB={setTeamsDB} captainsDB={captainsDB} setCaptainsDB={setCaptainsDB} transferReqs={transferReqs} setTransferReqs={setTransferReqs} premium={premium} setPremium={setPremium} currentUser={currentUser}/>} 
         {tab==='news'&&<NewsPage css={css} isDark={isDark} notices={notices} noticeInput={noticeInput} setNoticeInput={setNoticeInput} postNotice={postNotice}/>}
       </main>
