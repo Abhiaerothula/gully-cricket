@@ -303,9 +303,8 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     if(!currentUser?.email){window.alert('Please login first.');return}
     if(!isAdmin&&sm.scorer!==currentUser?.email){window.alert('Only the assigned scorer or admin can start this match.');return}
     if(!verifyEditorPassword())return
-    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,scheduledMatches:(t.scheduledMatches||[]).map(s=>s.id!==sm.id?s:{...s,status:'live'})}))
     const tt2=tournaments.find(x=>x.id===tid)
-    setPendingMatch({team1:sm.team1,team2:sm.team2,tournamentId:tid,format:tt2?.format||'T20',customOvers:tt2?.customOvers||null})
+    setPendingMatch({team1:sm.team1,team2:sm.team2,tournamentId:tid,format:tt2?.format||'T20',customOvers:tt2?.customOvers||null,smId:sm.id})
     setShowNewMatch(true);setTab('score')
   }
 
@@ -697,7 +696,11 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
           {innerT==='matches'&&(
             <GSection title="🏏 RECENT MATCHES" css={css}>
               {(!t.recentMatches||t.recentMatches.length===0)&&<div style={{textAlign:'center',padding:24,color:css.sub,fontSize:13}}>No match data yet.</div>}
-              {(t.recentMatches||[]).map(m=>(
+              {(t.recentMatches||[]).map(m=>{
+                const inn0=m.innings?.[0],inn1=m.innings?.[1]
+                const resultText=m.resolution?(m.resolution==='walkover'?`🏆 ${m.resultLabel||'Walkover'}`:m.resolution==='draw'?'🤝 Match Drawn':m.resolution==='no_result'?'⛈️ No Result':m.resolution==='abandoned'?'🚫 Abandoned':'Resolved'):(inn0&&inn1&&inn1.score!==undefined?(inn1.score>inn0.score?`🏆 ${inn1.batting} won by ${10-inn1.wickets} wicket${(10-inn1.wickets)!==1?'s':''}`:inn0.score>inn1.score?`🏆 ${inn0.batting} won by ${inn0.score-inn1.score} run${(inn0.score-inn1.score)!==1?'s':''}`:inn0.score===inn1.score?'🤝 Match Tied':null):null)
+                const resultColor=m.resolution?(m.resolution==='walkover'?C.yellow:m.resolution==='draw'||m.resolution==='no_result'?C.info:C.danger):(resultText?.includes('Tied')?C.info:C.success)
+                return(
                 <div key={m.id} onClick={()=>{setSelMatch(m);setSelInnings(0)}} style={{background:isDark?C.midGray:C.white,borderRadius:12,padding:12,marginBottom:8,border:`1px solid ${css.border}`,cursor:'pointer',boxShadow:isDark?'none':'0 1px 3px rgba(0,0,0,0.08)'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:css.accent,background:`${css.accent}22`,padding:'2px 6px',borderRadius:4}}>✅ COMPLETED · {m.format}</span>
@@ -706,21 +709,22 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <div>
                       <div style={{fontSize:13,fontWeight:700}}>{m.team1}</div>
-                      <div style={{fontSize:11,color:css.sub}}>{m.innings[0]?`${m.innings[0].score}/${m.innings[0].wickets} (${m.innings[0].oversDisplay||'0.0'})`:'—'}</div>
+                      <div style={{fontSize:11,color:css.sub}}>{inn0?`${inn0.score}/${inn0.wickets} (${inn0.oversDisplay||'0.0'})`:'—'}</div>
                     </div>
                     <div style={{fontSize:11,color:css.sub,fontWeight:600}}>vs</div>
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:13,fontWeight:700}}>{m.team2}</div>
-                      <div style={{fontSize:11,color:css.sub}}>{m.innings[1]?`${m.innings[1].score}/${m.innings[1].wickets} (${m.innings[1].oversDisplay||'0.0'})`:'—'}</div>
+                      <div style={{fontSize:11,color:css.sub}}>{inn1?`${inn1.score}/${inn1.wickets} (${inn1.oversDisplay||'0.0'})`:'—'}</div>
                     </div>
                   </div>
-                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
-                    {(m.innings[0]?.ballLog||[]).slice(0,12).map((b,i)=><BallDot key={i} b={b} size={18} isDark={isDark}/>)}
-                    {(m.innings[0]?.ballLog||[]).length>12&&<span style={{fontSize:9,color:css.sub,alignSelf:'center'}}>+{(m.innings[0].ballLog.length-12)} more</span>}
-                  </div>
-                  <div style={{fontSize:10,color:css.accent,fontWeight:700,textAlign:'right'}}>View 100 balls →</div>
+                  {resultText&&<div style={{background:`${resultColor}15`,border:`1px solid ${resultColor}33`,borderRadius:8,padding:'6px 10px',marginBottom:6,textAlign:'center'}}><span style={{fontSize:11,fontWeight:700,color:resultColor}}>{resultText}</span></div>}
+                  {!m.resolution&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
+                    {(inn0?.ballLog||[]).slice(0,12).map((b,i)=><BallDot key={i} b={b} size={18} isDark={isDark}/>)}
+                    {(inn0?.ballLog||[]).length>12&&<span style={{fontSize:9,color:css.sub,alignSelf:'center'}}>+{(inn0.ballLog.length-12)} more</span>}
+                  </div>}
+                  <div style={{fontSize:10,color:css.accent,fontWeight:700,textAlign:'right'}}>View details →</div>
                 </div>
-              ))}
+              )})}
             </GSection>
           )}
           {innerT==='batting'&&(

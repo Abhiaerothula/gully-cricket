@@ -712,18 +712,20 @@ function applyMatchResultToTournament(tournament,match){
   }
 }
 
-export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB,tournaments,setTournaments,currentUser,authSession,pendingMatch,setPendingMatch}){
+export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,setShowNewMatch,activeScoring,setActiveScoring,teamsDB,tournaments,setTournaments,currentUser,authSession,pendingMatch,setPendingMatch,setTab}){
   const MIN_PLAYERS_PER_TEAM=8
   const isAdmin=currentUser?.role==='admin'
   const[newForm,setNewForm]=useState({team1:'',team2:'',format:'T20',tournamentId:'',toss:'',bat:'',customOvers:'10',team1Players:[],team2Players:[],striker:'',nonStriker:'',firstBowler:''})
   const[viewMatch,setViewMatch]=useState(null)
   const[matchSearch,setMatchSearch]=useState('')
   const[filterFormat,setFilterFormat]=useState('')
+  const[fromTournament,setFromTournament]=useState(null) // {tournamentId, smId} for back navigation
   useEffect(()=>{if(showNewMatch)setActiveScoring(null)},[showNewMatch,setActiveScoring])
   // Pre-fill from pending scheduled match
   useEffect(()=>{
     if(pendingMatch&&showNewMatch){
       setNewForm(f=>({...f,team1:pendingMatch.team1||'',team2:pendingMatch.team2||'',format:pendingMatch.format||'T20',customOvers:pendingMatch.customOvers?String(pendingMatch.customOvers):'10',tournamentId:pendingMatch.tournamentId?String(pendingMatch.tournamentId):'',team1Players:[],team2Players:[],toss:'',bat:'',striker:'',nonStriker:'',firstBowler:''}))
+      if(pendingMatch.tournamentId)setFromTournament({tournamentId:pendingMatch.tournamentId,smId:pendingMatch.smId||null})
       setPendingMatch(null)
     }
   },[pendingMatch,showNewMatch,setPendingMatch])
@@ -781,6 +783,11 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
       ],
       created:Date.now()
     }
+    // If from tournament scheduled match, set it to 'live'
+    if(fromTournament&&fromTournament.tournamentId&&fromTournament.smId){
+      setTournaments(prev=>prev.map(t=>t.id!==fromTournament.tournamentId?t:{...t,scheduledMatches:(t.scheduledMatches||[]).map(s=>s.id!==fromTournament.smId?s:{...s,status:'live'})}))
+    }
+    setFromTournament(null)
     setMatches(p=>[...p,m]);setActiveScoring(m);setShowNewMatch(false)
   }
   if(activeScoring){
@@ -802,7 +809,10 @@ export default function ScorePage({css,isDark,matches,setMatches,showNewMatch,se
         <div style={{background:css.card,borderRadius:16,padding:18,border:`1px solid ${C.yellow}44`}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
             <span style={{fontWeight:800,fontSize:16,color:css.accent}}>New Match</span>
-            <button onClick={()=>setShowNewMatch(false)} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={18}/></button>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              {fromTournament&&setTab&&<button onClick={()=>{setShowNewMatch(false);setFromTournament(null);setTab('league')}} style={{background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:C.yellow,fontSize:11,fontWeight:700}}>← Back to Tournament</button>}
+              <button onClick={()=>{setShowNewMatch(false);setFromTournament(null)}} style={{background:'none',border:'none',cursor:'pointer',color:css.sub}}><X size={18}/></button>
+            </div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             {['team1','team2'].map((key,i)=>(
