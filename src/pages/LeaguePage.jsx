@@ -1,5 +1,5 @@
 import{useState}from'react'
-import{Plus,X,ChevronRight,UserPlus}from'lucide-react'
+import{Plus,X,ChevronRight,UserPlus,Trash2}from'lucide-react'
 import{BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}from'recharts'
 import{C,FORMATS,COLORS_BAR}from'../data/constants.js'
 import{GSection,PAv,GIn,MatchCard}from'../components/Shared.jsx'
@@ -75,41 +75,112 @@ function BallsView({innings,css,isDark}){
   )
 }
 
-export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsDB}){
+export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsDB,currentUser,authSession}){
   const[view,setView]=useState('list')
   const[selT,setSelT]=useState(null)
   const[innerT,setInnerT]=useState('table')
   const[showNew,setShowNew]=useState(false)
-  const[nForm,setNForm]=useState({name:'',format:'T20',teams:''})
+  const[nForm,setNForm]=useState({name:'',format:'T20',teams:'',hasGroups:false})
+  const[selectedTeams,setSelectedTeams]=useState([])
   // Add team to existing tournament
   const[showAddTeam,setShowAddTeam]=useState(false)
   const[newTeamName,setNewTeamName]=useState('')
   // Selected match for ball-by-ball view
   const[selMatch,setSelMatch]=useState(null)
   const[selInnings,setSelInnings]=useState(0)
+  const[editGroups,setEditGroups]=useState(false)
+  const[groupDraft,setGroupDraft]=useState(null)
+  const[accessName,setAccessName]=useState('')
 
+  const isAdmin=currentUser?.role==='admin'
+  const canManageTournament=t=>isAdmin||(t?.accessUsers||[]).includes(currentUser?.email)
+  const allUserNames=[...new Set(Object.values(teamsDB||{}).flat().map(p=>p.email).filter(Boolean))]
+  const verifyEditorPassword=()=>{
+    if(!(authSession?.authenticated&&authSession?.name===currentUser?.email)){
+      window.alert(`Please login as ${currentUser?.email||'your account'} using the Login button first.`)
+      return false
+    }
+    return true
+  }
+
+  const moveTeamToGroup=(team,targetGrp)=>{
+    setGroupDraft(prev=>prev.map(g=>({...g,teams:g.name===targetGrp?g.teams.includes(team)?g.teams:[...g.teams,team]:g.teams.filter(x=>x!==team)})))
+  }
+  const addNewGroup=()=>{
+    if(!groupDraft)return
+    const letter=String.fromCharCode(65+groupDraft.length)
+    setGroupDraft(prev=>[...prev,{name:`Group ${letter}`,teams:[],table:[]}])
+  }
+  const saveGroupEdit=(tid)=>{
+    if(!groupDraft)return
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){
+      window.alert('You do not have access to edit this tournament.')
+      return
+    }
+    if(!verifyEditorPassword())return
+    setTournaments(prev=>prev.map(t=>{
+      if(t.id!==tid)return t
+      const allExistingRows=(t.groups||[]).flatMap(g=>g.table||[])
+      const updGroups=groupDraft.map(g=>({
+        ...g,
+        table:g.teams.map(team=>allExistingRows.find(r=>r.team===team)||{team,p:0,w:0,l:0,pts:0,nrr:'—'})
+      }))
+      return{...t,groups:updGroups}
+    }))
+    setEditGroups(false);setGroupDraft(null)
+  }
   const statusColor=s=>s==='ongoing'?C.yellow:s==='upcoming'?C.info:css.sub
   const statusBg=s=>s==='ongoing'?`${C.yellow}22`:s==='upcoming'?`${C.info}22`:css.border
   const statusLabel=s=>s==='ongoing'?'● LIVE':s==='upcoming'?'⏳ UPCOMING':'✅ DONE'
+  const dbTeams=Object.keys(teamsDB||{})
 
   const createT=()=>{
+    if(!isAdmin){
+      window.alert('Only Admin can create tournaments.')
+      return
+    }
+    if(!verifyEditorPassword())return
     if(!nForm.name.trim())return
-    const tl=nForm.teams.split(',').map(t=>t.trim()).filter(Boolean)
+    const rawTeams=selectedTeams.length?[...selectedTeams]:nForm.teams.split(',').map(t=>t.trim()).filter(Boolean)
+    const tl=[...new Set(rawTeams)]
+    const invalid=tl.filter(t=>!dbTeams.includes(t))
+    if(invalid.length){
+      window.alert(`Only teams from Players DB can be added. Invalid: ${invalid.join(', ')}`)
+      return
+    }
     if(tl.length<2)return
+    const groupCount=nForm.hasGroups?Math.ceil(tl.length/4):0
+    const groups=nForm.hasGroups?Array.from({length:groupCount},(_, gi)=>({
+      name:`Group ${String.fromCharCode(65+gi)}`,
+      teams:tl.slice(gi*4,(gi+1)*4),
+      table:tl.slice(gi*4,(gi+1)*4).map(team=>({team,p:0,w:0,l:0,pts:0,nrr:'—'}))
+    })):null
     const t={
       id:Date.now(),name:nForm.name,shortName:nForm.name.slice(0,6).toUpperCase(),
       format:nForm.format,status:'upcoming',emoji:'🏏',
       color:COLORS_BAR[tournaments.length%COLORS_BAR.length],
       teams:tl,startDate:new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}),
       endDate:'TBD',matches:Math.floor(tl.length*(tl.length-1)/2),played:0,prize:'TBD',
-      recentMatches:[],
+      recentMatches:[],hasGroups:nForm.hasGroups,groups:groups,
+      accessUsers:[currentUser?.email||'admin@example.com'],
       table:tl.map(team=>({team,p:0,w:0,l:0,pts:0,nrr:'—'})),
     }
-    setTournaments(p=>[t,...p]);setShowNew(false);setNForm({name:'',format:'T20',teams:''})
+    setTournaments(p=>[t,...p]);setShowNew(false);setNForm({name:'',format:'T20',teams:'',hasGroups:false});setSelectedTeams([])
   }
 
   const addTeamToTournament=(tid,teamName)=>{
     if(!teamName.trim())return
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){
+      window.alert('You do not have access to edit this tournament.')
+      return
+    }
+    if(!verifyEditorPassword())return
+    if(!dbTeams.includes(teamName.trim())){
+      window.alert('Team must exist in Players DB before adding to tournament.')
+      return
+    }
     setTournaments(prev=>prev.map(t=>{
       if(t.id!==tid)return t
       if(t.teams.includes(teamName.trim()))return t
@@ -121,22 +192,71 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     setNewTeamName('');setShowAddTeam(false)
   }
 
+  const deleteTournament=(tid,name='this tournament')=>{
+    const tt=tournaments.find(x=>x.id===tid)
+    if(!canManageTournament(tt)){
+      window.alert('You do not have access to delete this tournament.')
+      return
+    }
+    if(!verifyEditorPassword())return
+    const ok=window.confirm(`Delete "${name}" permanently?`)
+    if(!ok)return
+    const t=tournaments.find(x=>x.id===tid)
+    const hasMatchHistory=!!t&&((t.played||0)>0||((t.recentMatches||[]).length>0))
+    if(hasMatchHistory){
+      const confirmHistory=window.confirm(`"${name}" has match history. Delete anyway? This action cannot be undone.`)
+      if(!confirmHistory)return
+    }
+    setTournaments(prev=>prev.filter(t=>t.id!==tid))
+    if(selT===tid){
+      setSelT(null)
+      setView('list')
+      setInnerT('table')
+      setSelMatch(null)
+    }
+  }
+
+  const grantTournamentAccess=(tid,name)=>{
+    const clean=name.trim()
+    if(!clean)return
+    if(!isAdmin){
+      window.alert('Only Admin can grant tournament access.')
+      return
+    }
+    if(!verifyEditorPassword())return
+    if(!allUserNames.includes(clean)){
+      window.alert('Access can be granted only to registered player emails from Players DB.')
+      return
+    }
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,accessUsers:[...new Set([...(t.accessUsers||[]),clean])]}))
+    setAccessName('')
+  }
+
+  const revokeTournamentAccess=(tid,name)=>{
+    if(!isAdmin){
+      window.alert('Only Admin can revoke tournament access.')
+      return
+    }
+    if(!verifyEditorPassword())return
+    setTournaments(prev=>prev.map(t=>t.id!==tid?t:{...t,accessUsers:(t.accessUsers||[]).filter(x=>x!==name)}))
+  }
+
   if(selMatch){
     const t=tournaments.find(x=>x.id===selT)
     const m=selMatch
     const tabs=[{id:0,label:`🏏 ${m.innings[0]?.batting||'Inn 1'}`},{id:1,label:`🏏 ${m.innings[1]?.batting||'Inn 2'}`}]
     return(
       <div style={{paddingBottom:12}}>
-        <div style={{background:css.scorerBg,padding:'14px',borderBottom:`2px solid ${t?.color||C.yellow}`}}>
+        <div style={{background:`linear-gradient(135deg,${C.black},${C.darkGray})`,padding:'14px',borderBottom:`2px solid ${t?.color||C.yellow}`}}>
           <button onClick={()=>setSelMatch(null)} style={{background:`${C.yellow}22`,border:`1px solid ${C.yellow}44`,borderRadius:8,padding:'6px 12px',cursor:'pointer',color:C.yellow,fontSize:12,fontWeight:700,marginBottom:10}}>← Back to Match List</button>
           <div style={{fontSize:15,fontWeight:900,marginBottom:4}}>{m.team1} vs {m.team2}</div>
-          <div style={{fontSize:11,color:css.sub}}>{m.format} · {new Date(m.created).toLocaleDateString()}</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.5)'}}>{m.format} · {new Date(m.created).toLocaleDateString()}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:10}}>
             {m.innings.map((inn,i)=>(
-              <div key={i} style={{background:css.innCard,borderRadius:10,padding:10,textAlign:'center'}}>
-                <div style={{fontSize:10,color:css.sub,marginBottom:2}}>{inn.batting}</div>
+              <div key={i} style={{background:'rgba(255,255,255,0.06)',borderRadius:10,padding:10,textAlign:'center'}}>
+                <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:2}}>{inn.batting}</div>
                 <div style={{fontSize:22,fontWeight:900,color:C.yellow}}>{inn.score}/{inn.wickets}</div>
-                <div style={{fontSize:10,color:css.sub}}>{inn.oversDisplay||'0.0'} ov</div>
+                <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{inn.oversDisplay||'0.0'} ov</div>
               </div>
             ))}
           </div>
@@ -155,26 +275,28 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
 
   if(view==='detail'&&selT){
     const t=tournaments.find(x=>x.id===selT)||tournaments[0]
+    const canEditT=canManageTournament(t)
     const tp=t.teams.flatMap(tn=>teamsDB[tn]||[])
     const orange=[...tp].sort((a,b)=>b.runs-a.runs).slice(0,5)
     const purple=[...tp].sort((a,b)=>b.wickets-a.wickets).slice(0,5)
     const iTabs=[{id:'table',label:'🏟️ Table'},{id:'matches',label:'🏏 Matches'},{id:'batting',label:'🟠 Batting'},{id:'bowling',label:'🟣 Bowling'},{id:'teams',label:'👥 Teams'},{id:'chart',label:'📊 Chart'}]
     return(
       <div style={{paddingBottom:12}}>
-        <div style={{background:css.scorerBg,padding:'14px',borderBottom:`2px solid ${t.color}`}}>
+        <div style={{background:`linear-gradient(135deg,${C.black},${C.darkGray})`,padding:'14px',borderBottom:`2px solid ${t.color}`}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
             <button onClick={()=>setView('list')} style={{background:`${t.color}22`,border:`1px solid ${t.color}44`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:t.color,fontSize:12,fontWeight:700}}>← Back</button>
             <div style={{fontSize:22}}>{t.emoji}</div>
             <div>
-              <div style={{fontWeight:900,fontSize:15,color:css.text}}>{t.name}</div>
-              <div style={{fontSize:11,color:css.sub}}>{t.format}·{t.teams.length} teams</div>
+              <div style={{fontWeight:900,fontSize:15,color:C.white}}>{t.name}</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.45)'}}>{t.format}·{t.teams.length} teams{canEditT?' · edit access':' · read only'}</div>
             </div>
+            {canEditT&&<button onClick={()=>deleteTournament(t.id,t.name)} style={{marginLeft:'auto',background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:C.danger,fontSize:11,fontWeight:700,display:'flex',alignItems:'center',gap:6}}><Trash2 size={13}/>Delete</button>}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
             {[{label:'Teams',value:t.teams.length},{label:'Matches',value:t.matches},{label:'Played',value:t.played},{label:'Prize',value:t.prize}].map(s=>(
-              <div key={s.label} style={{background:css.innerBg,borderRadius:8,padding:'8px 6px',textAlign:'center'}}>
+              <div key={s.label} style={{background:'rgba(0,0,0,0.35)',borderRadius:8,padding:'8px 6px',textAlign:'center'}}>
                 <div style={{fontSize:13,fontWeight:900,color:t.color}}>{s.value}</div>
-                <div style={{fontSize:9,color:css.sub,marginTop:1,textTransform:'uppercase',letterSpacing:0.5}}>{s.label}</div>
+                <div style={{fontSize:9,color:'rgba(255,255,255,0.45)',marginTop:1,textTransform:'uppercase',letterSpacing:0.5}}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -186,27 +308,83 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
         <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
           {innerT==='table'&&(
             <div style={{background:css.card,borderRadius:14,overflow:'hidden',border:`1px solid ${css.border}`}}>
-              <div style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'8px 12px',background:css.tableHead,fontSize:9,fontWeight:700,color:css.sub,letterSpacing:0.5}}>
-                <div>#</div><div>TEAM</div><div>P</div><div>W</div><div>L</div><div>PTS</div><div>NRR</div>
-              </div>
-              {t.table.map((row,i)=>(
-                <div key={row.team} style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'10px 12px',borderTop:`1px solid ${css.border}`,background:i===0?`${t.color}11`:'transparent'}}>
-                  <div style={{fontSize:12,fontWeight:800,color:i<2?t.color:css.sub}}>{i+1}</div>
-                  <div style={{fontSize:12,fontWeight:i===0?700:500}}>{i===0?'🥇 ':i===1?'🥈 ':''}{row.team}</div>
-                  <div style={{fontSize:12,color:css.sub}}>{row.p}</div>
-                  <div style={{fontSize:12,color:C.success,fontWeight:600}}>{row.w}</div>
-                  <div style={{fontSize:12,color:C.danger}}>{row.l}</div>
-                  <div style={{fontSize:13,fontWeight:900,color:t.color}}>{row.pts}</div>
-                  <div style={{fontSize:11,color:row.nrr.startsWith('+')?C.success:row.nrr==='—'?css.sub:C.danger}}>{row.nrr}</div>
+              {t.hasGroups&&t.groups?(
+                <div>
+                  {!editGroups&&canEditT&&(
+                    <div style={{padding:'10px 12px',display:'flex',justifyContent:'flex-end'}}>
+                      <button onClick={()=>{setGroupDraft(t.groups.map(g=>({...g,teams:[...g.teams]})));setEditGroups(true)}} style={{background:`${t.color}22`,border:`1px solid ${t.color}44`,borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:700,color:t.color,cursor:'pointer'}}>✏️ Edit Groups</button>
+                    </div>
+                  )}
+                  {editGroups&&groupDraft&&(
+                    <div style={{padding:14,borderBottom:`2px solid ${t.color}`}}>
+                      <div style={{fontSize:13,fontWeight:800,color:t.color,marginBottom:10}}>✏️ Assign Teams to Groups</div>
+                      <div style={{fontSize:11,color:css.sub,marginBottom:12}}>For each team, choose which group they belong to.</div>
+                      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12}}>
+                        {t.teams.map(team=>{
+                          const curGrp=groupDraft.find(g=>g.teams.includes(team))?.name||''
+                          return(
+                            <div key={team} style={{display:'flex',alignItems:'center',gap:10,background:css.bg,borderRadius:8,padding:'8px 12px',border:`1px solid ${css.border}`}}>
+                              <span style={{flex:1,fontSize:12,fontWeight:600,color:css.text}}>{team}</span>
+                              <select value={curGrp} onChange={e=>moveTeamToGroup(team,e.target.value)} style={{background:css.card,border:`1px solid ${css.border}`,borderRadius:6,padding:'6px 10px',fontSize:11,color:css.text,cursor:'pointer'}}>
+                                <option value="">— Unassigned —</option>
+                                {groupDraft.map(g=><option key={g.name} value={g.name}>{g.name}</option>)}
+                              </select>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <button onClick={addNewGroup} style={{background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:8,padding:'7px 12px',fontSize:11,fontWeight:700,color:C.info,cursor:'pointer',width:'100%',marginBottom:8}}>+ Add New Group</button>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                        <button onClick={()=>{setEditGroups(false);setGroupDraft(null)}} style={{background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'9px 12px',fontSize:12,fontWeight:600,cursor:'pointer',color:css.text}}>Cancel</button>
+                        <button onClick={()=>saveGroupEdit(t.id)} style={{background:`linear-gradient(135deg,${t.color},${t.color}cc)`,border:'none',borderRadius:8,padding:'9px 12px',fontSize:12,fontWeight:700,cursor:'pointer',color:C.black}}>Save Groups</button>
+                      </div>
+                    </div>
+                  )}
+                  {!editGroups&&t.groups.map(grp=>(
+                    <div key={grp.name} style={{marginBottom:16}}>
+                      <div style={{fontSize:13,fontWeight:900,color:t.color,marginBottom:8,paddingLeft:12}}>{grp.name}</div>
+                      <div style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'8px 12px',background:isDark?C.midGray:C.lightGray,fontSize:9,fontWeight:700,color:css.sub,letterSpacing:0.5}}>
+                        <div>#</div><div>TEAM</div><div>P</div><div>W</div><div>L</div><div>PTS</div><div>NRR</div>
+                      </div>
+                      {grp.table.map((row,i)=>(
+                        <div key={row.team} style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'10px 12px',borderTop:`1px solid ${css.border}`,background:i===0?`${t.color}11`:'transparent'}}>
+                          <div style={{fontSize:12,fontWeight:800,color:i<1?t.color:css.sub}}>{i+1}</div>
+                          <div style={{fontSize:12,fontWeight:i===0?700:500}}>{i===0?'🥇 ':''}{ row.team}</div>
+                          <div style={{fontSize:12,color:css.sub}}>{row.p}</div>
+                          <div style={{fontSize:12,color:C.success,fontWeight:600}}>{row.w}</div>
+                          <div style={{fontSize:12,color:C.danger}}>{row.l}</div>
+                          <div style={{fontSize:13,fontWeight:900,color:t.color}}>{row.pts}</div>
+                          <div style={{fontSize:11,color:row.nrr.startsWith('+')?C.success:row.nrr==='—'?css.sub:C.danger}}>{row.nrr}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ):(
+                <div>
+                  <div style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'8px 12px',background:isDark?C.midGray:C.lightGray,fontSize:9,fontWeight:700,color:css.sub,letterSpacing:0.5}}>
+                    <div>#</div><div>TEAM</div><div>P</div><div>W</div><div>L</div><div>PTS</div><div>NRR</div>
+                  </div>
+                  {t.table.map((row,i)=>(
+                    <div key={row.team} style={{display:'grid',gridTemplateColumns:'24px 1fr 28px 28px 28px 44px 48px',gap:4,padding:'10px 12px',borderTop:`1px solid ${css.border}`,background:i===0?`${t.color}11`:'transparent'}}>
+                      <div style={{fontSize:12,fontWeight:800,color:i<2?t.color:css.sub}}>{i+1}</div>
+                      <div style={{fontSize:12,fontWeight:i===0?700:500}}>{i===0?'🥇 ':i===1?'🥈 ':''}{row.team}</div>
+                      <div style={{fontSize:12,color:css.sub}}>{row.p}</div>
+                      <div style={{fontSize:12,color:C.success,fontWeight:600}}>{row.w}</div>
+                      <div style={{fontSize:12,color:C.danger}}>{row.l}</div>
+                      <div style={{fontSize:13,fontWeight:900,color:t.color}}>{row.pts}</div>
+                      <div style={{fontSize:11,color:row.nrr.startsWith('+')?C.success:row.nrr==='—'?css.sub:C.danger}}>{row.nrr}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {innerT==='matches'&&(
             <GSection title="🏏 RECENT MATCHES" css={css}>
               {(!t.recentMatches||t.recentMatches.length===0)&&<div style={{textAlign:'center',padding:24,color:css.sub,fontSize:13}}>No match data yet.</div>}
               {(t.recentMatches||[]).map(m=>(
-                <div key={m.id} onClick={()=>{setSelMatch(m);setSelInnings(0)}} style={{background:css.cardAlt,borderRadius:12,padding:12,marginBottom:8,border:`1px solid ${css.border}`,cursor:'pointer'}}>
+                <div key={m.id} onClick={()=>{setSelMatch(m);setSelInnings(0)}} style={{background:isDark?C.midGray:'#f8f8f8',borderRadius:12,padding:12,marginBottom:8,border:`1px solid ${css.border}`,cursor:'pointer'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <span style={{fontSize:9,fontWeight:700,letterSpacing:1,color:C.yellow,background:`${C.yellow}22`,padding:'2px 6px',borderRadius:4}}>✅ COMPLETED · {m.format}</span>
                     <span style={{fontSize:10,color:css.sub}}>{new Date(m.created).toLocaleDateString()}</span>
@@ -237,7 +415,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
               {orange.map((p,i)=>(
                 <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<orange.length-1?`1px solid ${css.border}`:'none'}}>
                   <div style={{width:22,fontSize:13,fontWeight:800,color:css.sub,textAlign:'center'}}>{i+1}</div>
-                  <PAv name={p.name} size={36}/>
+                  <PAv name={p.name} photo={p.photo} size={36}/>
                   <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{p.name}</div><div style={{fontSize:11,color:css.sub}}>{p.team}</div></div>
                   <div style={{textAlign:'right'}}><div style={{fontSize:20,fontWeight:900,color:C.yellow}}>{p.runs}</div><div style={{fontSize:9,color:css.sub}}>RUNS</div></div>
                 </div>
@@ -250,7 +428,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
               {purple.map((p,i)=>(
                 <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<purple.length-1?`1px solid ${css.border}`:'none'}}>
                   <div style={{width:22,fontSize:13,fontWeight:800,color:css.sub,textAlign:'center'}}>{i+1}</div>
-                  <PAv name={p.name} size={36}/>
+                  <PAv name={p.name} photo={p.photo} size={36}/>
                   <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{p.name}</div><div style={{fontSize:11,color:css.sub}}>{p.team}</div></div>
                   <div style={{textAlign:'right'}}><div style={{fontSize:20,fontWeight:900,color:'#9b59b6'}}>{p.wickets}</div><div style={{fontSize:9,color:css.sub}}>WKTS</div></div>
                 </div>
@@ -260,7 +438,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
           {innerT==='teams'&&(
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {/* ADD TEAM to existing tournament */}
-              {!showAddTeam?(
+              {canEditT&&(!showAddTeam?(
                 <button onClick={()=>setShowAddTeam(true)} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 4px 12px ${C.yellow}33`}}>
                   <UserPlus size={15}/> Add Team to {t.name}
                 </button>
@@ -274,7 +452,18 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
                   </div>
                   <div style={{fontSize:11,color:css.sub}}>Adding a team will update the points table and match count.</div>
                 </div>
-              )}
+              ))}
+              {!canEditT&&<div style={{fontSize:11,color:css.sub,background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px'}}>You have read-only access. Ask Admin to grant edit access for this tournament.</div>}
+              <div style={{background:css.card,borderRadius:12,padding:12,border:`1px solid ${css.border}`}}>
+                <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>🔐 Tournament Access</div>
+                {(t.accessUsers||[]).length===0&&<div style={{fontSize:11,color:css.sub}}>No additional users have access yet.</div>}
+                {(t.accessUsers||[]).map(u=><div key={u} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderTop:`1px solid ${css.border}`}}><span style={{fontSize:12,fontWeight:600}}>{u}</span>{isAdmin&&<button onClick={()=>revokeTournamentAccess(t.id,u)} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:6,padding:'4px 8px',fontSize:10,fontWeight:700,color:C.danger,cursor:'pointer'}}>Revoke</button>}</div>)}
+                {isAdmin&&<div style={{display:'flex',gap:8,marginTop:8}}>
+                  <input value={accessName} onChange={e=>setAccessName(e.target.value)} list="access-user-list" placeholder="Grant access to email" style={{flex:1,background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px',fontSize:12,color:css.text,outline:'none'}}/>
+                  <datalist id="access-user-list">{allUserNames.map(name=><option key={name} value={name}/>)}</datalist>
+                  <button onClick={()=>grantTournamentAccess(t.id,accessName)} style={{background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:8,padding:'8px 12px',fontSize:11,fontWeight:700,color:C.info,cursor:'pointer'}}>Grant</button>
+                </div>}
+              </div>
               <GSection title={`👥 TEAMS (${t.teams.length})`} css={css}>
                 {t.teams.map((team,i)=>(
                   <div key={team} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<t.teams.length-1?`1px solid ${css.border}`:'none'}}>
@@ -313,7 +502,7 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
     <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div><div style={{fontWeight:900,fontSize:16}}>Tournaments</div><div style={{fontSize:11,color:css.sub}}>{tournaments.length} total</div></div>
-        <button onClick={()=>setShowNew(true)} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:'8px 14px',fontSize:12,fontWeight:800,color:C.black,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><Plus size={13}/>New</button>
+        <button onClick={()=>{if(!isAdmin){window.alert('Only Admin can create tournaments.');return}setShowNew(true)}} style={{background:isAdmin?`linear-gradient(135deg,${C.yellow},${C.yellowDark})`:css.border,border:'none',borderRadius:10,padding:'8px 14px',fontSize:12,fontWeight:800,color:isAdmin?C.black:css.sub,cursor:isAdmin?'pointer':'not-allowed',display:'flex',alignItems:'center',gap:6}}><Plus size={13}/>New</button>
       </div>
       {showNew&&(
         <div style={{background:css.card,borderRadius:16,padding:16,border:`1px solid ${C.yellow}44`}}>
@@ -326,12 +515,41 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
             <div>
               <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Format</label>
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>
-                {Object.keys(FORMATS).map(f=><button key={f} onClick={()=>setNForm(fm=>({...fm,format:f}))} style={{background:nForm.format===f?C.yellow:css.card2,color:nForm.format===f?C.black:css.text,border:`1px solid ${nForm.format===f?C.yellow:css.border}`,borderRadius:8,padding:'7px 4px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{f}</button>)}
+                {Object.keys(FORMATS).map(f=><button key={f} onClick={()=>setNForm(fm=>({...fm,format:f}))} style={{background:nForm.format===f?C.yellow:css.bg,color:nForm.format===f?C.black:css.text,border:`1px solid ${nForm.format===f?C.yellow:css.border}`,borderRadius:8,padding:'7px 4px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{f}</button>)}
               </div>
             </div>
-            <GIn label="Teams (comma separated)" value={nForm.teams} onChange={v=>setNForm(f=>({...f,teams:v}))} css={css} ph="Team A, Team B, Team C"/>
+            <div>
+              <label style={{fontSize:12,color:css.sub,display:'block',marginBottom:6}}>Select Teams from Players DB</label>
+              {dbTeams.length>0&&(
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+                  <button onClick={()=>setSelectedTeams([...dbTeams])} style={{background:`${C.info}22`,border:`1px solid ${C.info}44`,borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:700,color:C.info,cursor:'pointer'}}>Select All</button>
+                  <button onClick={()=>setSelectedTeams([])} style={{background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:700,color:css.sub,cursor:'pointer'}}>Clear All</button>
+                </div>
+              )}
+              {dbTeams.length===0&&<div style={{fontSize:11,color:css.sub,background:css.bg,border:`1px solid ${css.border}`,borderRadius:8,padding:'8px 10px'}}>No teams in Players DB yet. Add teams in Players tab first.</div>}
+              {dbTeams.length>0&&(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6,maxHeight:140,overflowY:'auto',paddingRight:2}}>
+                  {dbTeams.map(team=>{
+                    const active=selectedTeams.includes(team)
+                    return(
+                      <button key={team} onClick={()=>setSelectedTeams(prev=>active?prev.filter(x=>x!==team):[...prev,team])} style={{background:active?`${C.yellow}22`:css.bg,color:active?C.yellow:css.text,border:`1px solid ${active?C.yellow:css.border}`,borderRadius:8,padding:'8px 10px',fontSize:11,fontWeight:700,cursor:'pointer',textAlign:'left',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{active?'✓ ':''}{team}</button>
+                    )
+                  })}
+                </div>
+              )}
+              <div style={{fontSize:11,color:css.sub,marginTop:8}}>Selected: {selectedTeams.length?selectedTeams.join(', '):'None'}</div>
+            </div>
+            <div style={{background:nForm.hasGroups?`${C.info}11`:css.bg,border:`1px solid ${nForm.hasGroups?C.info:css.border}`,borderRadius:10,padding:12,cursor:'pointer'}} onClick={()=>setNForm(f=>({...f,hasGroups:!f.hasGroups}))}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${nForm.hasGroups?C.info:css.border}`,background:nForm.hasGroups?C.info:'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>{nForm.hasGroups&&'✓'}</div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:css.text}}>📊 Use Groups</div>
+                  <div style={{fontSize:11,color:css.sub}}>Divide teams into groups for round-robin, then knockouts</div>
+                </div>
+              </div>
+            </div>
             <div style={{fontSize:11,color:css.sub}}>💡 You can add more teams later from the Teams tab inside the tournament.</div>
-            <button onClick={createT} style={{background:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:C.black,cursor:'pointer'}}>🏆 Create Tournament</button>
+            <button onClick={createT} disabled={selectedTeams.length<2} style={{background:selectedTeams.length<2?css.border:`linear-gradient(135deg,${C.yellow},${C.yellowDark})`,border:'none',borderRadius:10,padding:12,fontSize:13,fontWeight:800,color:selectedTeams.length<2?css.sub:C.black,cursor:selectedTeams.length<2?'not-allowed':'pointer'}}>🏆 Create Tournament</button>
           </div>
         </div>
       )}
@@ -342,7 +560,10 @@ export default function LeaguePage({css,isDark,tournaments,setTournaments,teamsD
               <div style={{fontSize:28}}>{t.emoji}</div>
               <div><div style={{fontWeight:800,fontSize:14}}>{t.name}</div><div style={{fontSize:11,color:css.sub}}>{t.format}·{t.teams.length} teams</div></div>
             </div>
-            <div style={{background:statusBg(t.status),color:statusColor(t.status),fontSize:9,fontWeight:700,letterSpacing:0.5,padding:'3px 7px',borderRadius:6,whiteSpace:'nowrap'}}>{statusLabel(t.status)}</div>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              {canManageTournament(t)&&<button onClick={e=>{e.stopPropagation();deleteTournament(t.id,t.name)}} style={{background:`${C.danger}22`,border:`1px solid ${C.danger}44`,borderRadius:7,padding:'5px 7px',cursor:'pointer',color:C.danger,display:'flex',alignItems:'center'}} title="Delete tournament"><Trash2 size={12}/></button>}
+              <div style={{background:statusBg(t.status),color:statusColor(t.status),fontSize:9,fontWeight:700,letterSpacing:0.5,padding:'3px 7px',borderRadius:6,whiteSpace:'nowrap'}}>{statusLabel(t.status)}</div>
+            </div>
           </div>
           <div style={{marginBottom:10}}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:11,color:css.sub}}>{t.played}/{t.matches} matches</span><span style={{fontSize:11,color:t.color,fontWeight:700}}>{t.prize}</span></div>
